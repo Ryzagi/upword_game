@@ -1,0 +1,636 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =====================================================================
+   Word Describer · neo-brutalist bento
+   Saturated flat colors · 2px ink borders · offset solid shadows.
+   ===================================================================== */
+
+:root {
+  --bg:          #fdf5dc;
+  --ink:         #14110a;
+  --ink-soft:    #4a4133;
+  --ink-faint:   #8a8170;
+  --card:        #ffffff;
+
+  /* Card / accent palette */
+  --yellow:      #ffd84d;
+  --pink:        #ffb1c1;
+  --mint:        #b4e4a3;
+  --sky:         #9bc5ec;
+  --lilac:       #d2bdf5;
+  --coral:       #ff5630;
+  --coral-deep:  #db3815;
+
+  /* "Selected" / pressed-segmented state. Constant across themes so the dark
+     theme's active toggle matches the light theme's (dark fill + cream text). */
+  --selected-bg: #0b0907;
+  --selected-fg: #f6f0d8;
+
+  --focus-ring:  #ff5630;
+  --shadow-color: var(--ink);
+}
+
+.dark {
+  --bg:          #1f1c14;       /* a touch lighter — warmer dark */
+  --ink:         #fbf6e3;       /* close-to-white body text */
+  --ink-soft:    #ebe2c6;       /* much higher contrast secondary */
+  --ink-faint:   #b8ad8f;       /* still subordinated but readable */
+  --card:        #322b1f;       /* keeps the lift off bg */
+
+  --yellow:      #ffd84d;
+  --pink:        #ffb1c1;
+  --mint:        #b4e4a3;
+  --sky:         #9bc5ec;
+  --lilac:       #d2bdf5;
+  --coral:       #ff7757;
+  --coral-deep:  #ff9276;
+
+  /* Selected stays dark-on-light even in dark theme. */
+  --selected-bg: #0b0907;
+  --selected-fg: #f6f0d8;
+
+  --focus-ring:  var(--coral);
+  --shadow-color: var(--ink);
+}
+
+html,
+body,
+#root {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-feature-settings: "ss01", "ss02", "kern", "liga";
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Decorative dotted background — barely-there texture. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    var(--ink) 1px,
+    transparent 0
+  );
+  background-size: 32px 32px;
+  opacity: 0.035;
+}
+.dark body::before {
+  opacity: 0.025;
+}
+
+/* ----- bento cards ----- */
+
+.bento {
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 var(--shadow-color);
+  position: relative;
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+.bento-lg {
+  box-shadow: 6px 6px 0 var(--shadow-color);
+}
+.bento-sm {
+  box-shadow: 2px 2px 0 var(--shadow-color);
+  border-radius: 10px;
+}
+.bento-flat {
+  box-shadow: none;
+}
+
+/* Light-pastel cards become a fully "light island": both text vars *and*
+   surface vars (bg/card) cascade to light values, so any nested element
+   that uses var(--bg) (e.g. .btn-ghost, .seg, modal Rows) also flips. This
+   keeps modals + the lobby masthead readable in either page theme. */
+.bento-yellow,
+.bento-pink,
+.bento-mint,
+.bento-sky,
+.bento-lilac {
+  --ink:       #14110a;
+  --ink-soft:  #3a3220;
+  --ink-faint: #6c624a;
+  --bg:        #fdf5dc;
+  --card:      #ffffff;
+  color: var(--ink);
+}
+.bento-yellow { background: var(--yellow); }
+.bento-pink   { background: var(--pink); }
+.bento-mint   { background: var(--mint); }
+.bento-sky    { background: var(--sky); }
+.bento-lilac  { background: var(--lilac); }
+.bento-coral  { background: var(--coral); color: #fff; }
+.bento-ink    { background: var(--ink); color: var(--bg); }
+
+/* A coloured shadow variant for accent cards. */
+.bento[data-shadow-color="coral"]   { box-shadow: 5px 5px 0 var(--coral); }
+.bento[data-shadow-color="yellow"]  { box-shadow: 5px 5px 0 var(--yellow); }
+.bento[data-shadow-color="mint"]    { box-shadow: 5px 5px 0 var(--mint); }
+
+/* ----- buttons ----- */
+
+.btn {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: -0.005em;
+  background: var(--ink);
+  color: var(--bg);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 0.7rem 1.2rem;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--shadow-color);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out,
+              background-color 100ms ease-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--shadow-color);
+}
+.btn:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--shadow-color);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: 2px 2px 0 var(--shadow-color);
+}
+
+.btn-coral {
+  background: var(--coral);
+  color: #fff;
+  border-color: var(--ink);
+}
+.btn-coral:hover:not(:disabled) {
+  background: var(--coral-deep);
+}
+
+.btn-ghost {
+  /* Use the card surface, not the page bg — so the ghost button sits
+     visibly off coloured/light-island parents like the yellow masthead. */
+  background: var(--card);
+  color: var(--ink);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg);
+}
+
+/* Same trick for pastel buttons. */
+.btn-yellow,
+.btn-mint,
+.btn-pink,
+.btn-sky,
+.btn-lilac {
+  --ink: #14110a;
+  color: var(--ink);
+}
+.btn-yellow { background: var(--yellow); }
+.btn-mint   { background: var(--mint); }
+.btn-pink   { background: var(--pink); }
+.btn-sky    { background: var(--sky); }
+.btn-lilac  { background: var(--lilac); }
+
+.btn-sm {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+  border-radius: 9px;
+  box-shadow: 2px 2px 0 var(--shadow-color);
+}
+.btn-sm:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--shadow-color);
+}
+.btn-sm:active:not(:disabled) {
+  box-shadow: 0 0 0 var(--shadow-color);
+}
+
+.btn-quiet {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--ink-soft);
+  font-weight: 500;
+  padding: 0.35rem 0.7rem;
+  border-radius: 9px;
+  transition: color 100ms, background-color 100ms;
+}
+.btn-quiet:hover {
+  color: var(--ink);
+  background: var(--card);
+}
+.btn-quiet:active {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ----- fields ----- */
+
+.field {
+  width: 100%;
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--ink);
+  outline: none;
+  box-shadow: inset 2px 2px 0 rgba(20, 17, 10, 0.04);
+  transition: box-shadow 100ms, border-color 100ms;
+}
+.field:focus {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 3px var(--coral),
+              inset 2px 2px 0 rgba(20, 17, 10, 0.04);
+}
+.field::placeholder {
+  color: var(--ink-faint);
+}
+
+.field-mono {
+  font-family: "Space Mono", monospace;
+  letter-spacing: 0.55em;
+  text-transform: uppercase;
+  text-align: center;
+  font-size: 1.4rem;
+  padding-left: 1.4rem;
+}
+
+/* ----- chips / tags ----- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: "Space Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 700;
+}
+/* Pastel chips: same "light island" trick so the text stays dark on the
+   bright pill even in dark theme. */
+.chip-yellow,
+.chip-pink,
+.chip-mint,
+.chip-sky {
+  --ink:       #14110a;
+  --ink-soft:  #3a3220;
+  color: var(--ink);
+}
+.chip-yellow { background: var(--yellow); }
+.chip-pink   { background: var(--pink); }
+.chip-mint   { background: var(--mint); }
+.chip-sky    { background: var(--sky); }
+.chip-coral  { background: var(--coral); color: #fff; }
+.chip-ink    { background: var(--ink); color: var(--bg); }
+
+/* ----- segmented toggle ----- */
+
+.seg {
+  display: inline-flex;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--card);
+  overflow: hidden;
+}
+.seg-btn {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.85rem;
+  background: transparent;
+  color: var(--ink);
+  border: none;
+  cursor: pointer;
+  border-right: 2px solid var(--ink);
+}
+.seg-btn:last-child {
+  border-right: none;
+}
+.seg-btn[data-active="true"] {
+  background: var(--selected-bg);
+  color: var(--selected-fg);
+  /* Coral underline accent — makes the selected choice unmistakably the
+     one in play, regardless of theme or surrounding surface. */
+  box-shadow: inset 0 -3px 0 var(--coral);
+}
+.seg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ----- chip toggles (theme picker etc.) ----- */
+
+.chip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: "Space Mono", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.8rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 90ms ease-out, box-shadow 90ms ease-out;
+}
+.chip-toggle:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+}
+.chip-toggle-off {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--shadow-color);
+}
+.chip-toggle-off:hover:not(:disabled) {
+  box-shadow: 3px 3px 0 var(--shadow-color);
+}
+.chip-toggle-on {
+  --ink: #14110a;
+  --ink-soft: #3a3220;
+  background: var(--coral);
+  color: #fff;
+  border-color: #14110a;
+  box-shadow: 2px 2px 0 #14110a, inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+}
+.chip-toggle-claimed {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--card) 0px,
+    var(--card) 6px,
+    rgba(0, 0, 0, 0.06) 6px,
+    rgba(0, 0, 0, 0.06) 12px
+  );
+  color: var(--ink-soft);
+  cursor: not-allowed;
+  opacity: 0.7;
+  text-decoration: line-through;
+  text-decoration-color: var(--coral);
+  text-decoration-thickness: 2px;
+}
+
+/* ----- icon button (pencil / clipboard / etc.) ----- */
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.78rem;
+  line-height: 1;
+  transition: transform 90ms ease-out, box-shadow 90ms ease-out;
+}
+.icon-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--shadow-color);
+}
+.icon-btn[data-flash="true"] {
+  background: var(--mint);
+}
+
+/* ----- typography helpers ----- */
+
+.eyebrow {
+  font-family: "Space Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.headline {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.92;
+  font-variation-settings: "wdth" 100;
+}
+
+.headline-tight {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.88;
+  font-variation-settings: "wdth" 75;
+}
+
+.numeral {
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+}
+
+/* Highlight pen for accent words. */
+.hl-coral {
+  background: var(--coral);
+  color: #fff;
+  padding: 0 0.18em;
+  border-radius: 4px;
+  box-decoration-break: clone;
+}
+.hl-yellow {
+  background: var(--yellow);
+  color: var(--ink);
+  padding: 0 0.18em;
+  border-radius: 4px;
+  box-decoration-break: clone;
+}
+
+/* ----- alerts ----- */
+
+.alert {
+  background: var(--coral);
+  color: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 0.65rem 0.9rem;
+  font-weight: 500;
+  box-shadow: 3px 3px 0 var(--shadow-color);
+}
+
+/* ----- connection indicator ----- */
+
+.dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: "Space Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.dot::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: currentColor;
+}
+/* Forest green reads on the yellow masthead AND on dark page bg.
+   Amber for connecting, ink-faint for offline/idle. */
+.dot[data-state="open"]       { color: #0e7a3a; }
+.dot[data-state="connecting"] { color: #b45309; }
+.dot[data-state="closed"],
+.dot[data-state="idle"]       { color: var(--ink-faint); }
+
+/* ----- entrance motion ----- */
+
+@keyframes pop-in {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.pop-in {
+  animation: pop-in 340ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+[data-order="1"] { animation-delay:   0ms; }
+[data-order="2"] { animation-delay:  60ms; }
+[data-order="3"] { animation-delay: 120ms; }
+[data-order="4"] { animation-delay: 180ms; }
+[data-order="5"] { animation-delay: 240ms; }
+[data-order="6"] { animation-delay: 300ms; }
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  25%      { transform: rotate(-2deg); }
+  75%      { transform: rotate(2deg); }
+}
+.wiggle-on-hover:hover {
+  animation: wiggle 350ms ease-in-out;
+}
+
+/* ----- reduced motion + high-contrast user overrides ----- */
+
+.rm *,
+.rm *::before,
+.rm *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+.hc .bento,
+.hc .btn,
+.hc .field,
+.hc .chip,
+.hc .seg {
+  border-width: 3px;
+}
+.hc *:focus-visible {
+  outline: 3px solid var(--coral) !important;
+  outline-offset: 3px !important;
+}
+
+/* ----- selection ----- */
+
+::selection {
+  background: var(--coral);
+  color: #fff;
+}
+
+/* ----- section marker: small coloured dot used to brand quiet panels
+   without flooding their whole background ----- */
+.marker {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  flex-shrink: 0;
+}
+.marker-pink   { background: var(--pink); }
+.marker-mint   { background: var(--mint); }
+.marker-sky    { background: var(--sky); }
+.marker-yellow { background: var(--yellow); }
+.marker-lilac  { background: var(--lilac); }
+.marker-coral  { background: var(--coral); }
+
+/* ----- skip link (visible only on focus) ----- */
+
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  border: 2px solid var(--coral);
+  font-weight: 700;
+  transition: transform 120ms ease-out;
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
+}
+
+/* ----- generic focus ring on all interactive controls ----- */
+
+.btn:focus-visible,
+.btn-quiet:focus-visible,
+.choice:focus-visible,
+.seg-btn:focus-visible,
+.chip:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
+}
+
+/* Tiny rotated stamp / sticker — used as a decorative accent. */
+.sticker {
+  display: inline-block;
+  background: var(--coral);
+  color: #fff;
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.22rem 0.55rem;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  transform: rotate(-3deg);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.sticker-yellow { background: var(--yellow); color: #14110a; }
+.sticker-mint   { background: var(--mint);   color: #14110a; }
+.sticker-pink   { background: var(--pink);   color: #14110a; }

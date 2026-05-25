@@ -1,0 +1,70 @@
+# Stack for Word Describer.
+#
+# Local dev:
+#   docker compose up --build
+#   open http://localhost:8080      (Caddy disabled by default — see profiles)
+#
+# Production (with TLS + a real domain):
+#   docker compose --profile prod up -d --build
+#   open https://upword.live
+#
+# The `prod` profile adds Caddy in front, which terminates TLS and proxies
+# to the frontend container. In dev (no profile) Caddy isn't started and the
+# frontend is published directly on PUBLIC_PORT.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: word-describer-backend:local
+    environment:
+      APP_CORPUS_DIR: /data
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+      # JSON list of allowed browser origins. In prod the browser only ever
+      # sees same-origin (Caddy terminates TLS at upword.live) so this list
+      # mostly guards against API access from other origins.
+      APP_CORS_ORIGINS: ${APP_CORS_ORIGINS:-["http://localhost:8080","https://upword.live"]}
+      APP_TRANSLATION_EMAIL: ${APP_TRANSLATION_EMAIL:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: word-describer-frontend:local
+    depends_on:
+      backend:
+        condition: service_healthy
+    # In dev: publish directly so http://localhost:8080 works.
+    # In prod (with Caddy in front): Caddy reaches it via the docker network,
+    # no host port needed — but keeping it published is harmless.
+    ports:
+      - "${PUBLIC_PORT:-8080}:80"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8-alpine
+    profiles: ["prod"]
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"      # HTTP/3
+    environment:
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-admin@upword.live}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data           # certs + ACME account
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

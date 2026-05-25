@@ -1,0 +1,23 @@
+**/.git
+**/.github
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/dist
+**/build
+**/.next
+**/.idea
+**/.vscode
+**/.DS_Store
+**/coverage
+**/.env
+**/.env.local
+**/*.log
+
+# Repo-internal docs / planning that doesn't belong in the image.
+docs/
+README.md
+Makefile

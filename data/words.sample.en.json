@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "language": "en",
+  "themes": [
+    {
+      "id": "sport",
+      "name": "Sport",
+      "icon": "trophy",
+      "words": [
+        { "id": "ball",       "text": "ball",       "difficulty": 1, "hint": "A round object used in many games." },
+        { "id": "swimming",   "text": "swimming",   "difficulty": 1, "hint": "Moving through water on purpose." },
+        { "id": "goalkeeper", "text": "goalkeeper", "difficulty": 2, "hint": "The player who tries to stop shots from entering the net." },
+        { "id": "referee",    "text": "referee",    "difficulty": 2, "hint": "The person who enforces the rules during a match." },
+        { "id": "marathon",   "text": "marathon",   "difficulty": 3, "hint": "A long-distance running event of about 42 kilometres." },
+        { "id": "penalty",    "text": "penalty",    "difficulty": 3, "hint": "A free attempt awarded for a rule violation by the other side." },
+        { "id": "biathlon",   "text": "biathlon",   "difficulty": 4, "hint": "A winter event that combines cross-country skiing with shooting." },
+        { "id": "decathlon",  "text": "decathlon",  "difficulty": 4, "hint": "A track-and-field competition with ten different events." },
+        { "id": "curling",    "text": "curling",    "difficulty": 5, "hint": "An ice sport using brooms and heavy round stones." },
+        { "id": "pentathlon", "text": "pentathlon", "difficulty": 5, "hint": "A multi-event competition originating in the ancient games, featuring five disciplines." }
+      ]
+    },
+    {
+      "id": "nature",
+      "name": "Nature",
+      "icon": "leaf",
+      "words": [
+        { "id": "tree",     "text": "tree",     "difficulty": 1, "hint": "A tall plant with a trunk and leaves." },
+        { "id": "rain",     "text": "rain",     "difficulty": 1, "hint": "Water falling from the sky." },
+        { "id": "river",    "text": "river",    "difficulty": 2, "hint": "A long body of fresh water that flows toward the sea." },
+        { "id": "forest",   "text": "forest",   "difficulty": 2, "hint": "A large area densely covered with trees." },
+        { "id": "glacier",  "text": "glacier",  "difficulty": 3, "hint": "A huge mass of ice that moves slowly across land." },
+        { "id": "volcano",  "text": "volcano",  "difficulty": 3, "hint": "A mountain that occasionally erupts molten rock." },
+        { "id": "monsoon",  "text": "monsoon",  "difficulty": 4, "hint": "A seasonal wind that brings heavy rains, especially across South Asia." },
+        { "id": "estuary",  "text": "estuary",  "difficulty": 4, "hint": "The place where a river meets the sea, mixing fresh and salt water." },
+        { "id": "tundra",   "text": "tundra",   "difficulty": 5, "hint": "A treeless biome where the ground stays frozen below the surface." },
+        { "id": "savanna",  "text": "savanna",  "difficulty": 5, "hint": "A grassy plain with scattered trees, typical of tropical regions." }
+      ]
+    },
+    {
+      "id": "technology",
+      "name": "Technology",
+      "icon": "chip",
+      "words": [
+        { "id": "phone",      "text": "phone",      "difficulty": 1, "hint": "A device used to talk to people who are far away." },
+        { "id": "keyboard",   "text": "keyboard",   "difficulty": 1, "hint": "What you press to enter letters into a computer." },
+        { "id": "browser",    "text": "browser",    "difficulty": 2, "hint": "Software you use to visit websites." },
+        { "id": "wifi",       "text": "wifi",       "difficulty": 2, "hint": "The technology that lets devices connect to the internet without cables." },
+        { "id": "encryption", "text": "encryption", "difficulty": 3, "hint": "Scrambling information so only intended readers can understand it." },
+        { "id": "database",   "text": "database",   "difficulty": 3, "hint": "An organised collection of information that programs can query." },
+        { "id": "compiler",   "text": "compiler",   "difficulty": 4, "hint": "A tool that turns human-written source into machine instructions." },
+        { "id": "firewall",   "text": "firewall",   "difficulty": 4, "hint": "A network barrier that allows or blocks traffic by rules." },
+        { "id": "quantum",    "text": "quantum",    "difficulty": 5, "hint": "Relating to the smallest discrete units of physical reality." },
+        { "id": "blockchain", "text": "blockchain", "difficulty": 5, "hint": "A shared, append-only ledger replicated across many computers." }
+      ]
+    },
+    {
+      "id": "food",
+      "name": "Food",
+      "icon": "bowl",
+      "words": [
+        { "id": "bread",       "text": "bread",       "difficulty": 1, "hint": "A baked staple made from flour, water and yeast." },
+        { "id": "cheese",      "text": "cheese",      "difficulty": 1, "hint": "Solid dairy product made by curdling milk." },
+        { "id": "pancake",     "text": "pancake",     "difficulty": 2, "hint": "A thin, round batter cooked on a flat pan." },
+        { "id": "noodle",      "text": "noodle",      "difficulty": 2, "hint": "A long strand of dough boiled in water." },
+        { "id": "barbecue",    "text": "barbecue",    "difficulty": 3, "hint": "Cooking meat outdoors over open heat or coals." },
+        { "id": "dumpling",    "text": "dumpling",    "difficulty": 3, "hint": "A small parcel of dough wrapped around a filling." },
+        { "id": "espresso",    "text": "espresso",    "difficulty": 4, "hint": "A small, concentrated coffee shot pulled under pressure." },
+        { "id": "croissant",   "text": "croissant",   "difficulty": 4, "hint": "A flaky, buttery, crescent-shaped pastry." },
+        { "id": "ratatouille", "text": "ratatouille", "difficulty": 5, "hint": "A Provençal stew of summer vegetables — eggplant, zucchini, tomato." },
+        { "id": "sashimi",     "text": "sashimi",     "difficulty": 5, "hint": "Thinly sliced raw fish served without rice." }
+      ]
+    },
+    {
+      "id": "animals",
+      "name": "Animals",
+      "icon": "paw",
+      "words": [
+        { "id": "cat",         "text": "cat",         "difficulty": 1, "hint": "A small furry pet that purrs and meows." },
+        { "id": "horse",       "text": "horse",       "difficulty": 1, "hint": "A large hoofed animal often ridden by people." },
+        { "id": "penguin",     "text": "penguin",     "difficulty": 2, "hint": "A flightless bird that waddles on ice." },
+        { "id": "octopus",     "text": "octopus",     "difficulty": 2, "hint": "A sea creature with eight arms and remarkable intelligence." },
+        { "id": "kangaroo",    "text": "kangaroo",    "difficulty": 3, "hint": "An Australian marsupial that hops on powerful legs." },
+        { "id": "chameleon",   "text": "chameleon",   "difficulty": 3, "hint": "A lizard famous for changing its colour." },
+        { "id": "narwhal",     "text": "narwhal",     "difficulty": 4, "hint": "An Arctic whale with a long, spiraled tusk." },
+        { "id": "pangolin",    "text": "pangolin",    "difficulty": 4, "hint": "A scaly mammal that curls into a ball when threatened." },
+        { "id": "axolotl",     "text": "axolotl",     "difficulty": 5, "hint": "A Mexican salamander that keeps its larval features for life." },
+        { "id": "platypus",    "text": "platypus",    "difficulty": 5, "hint": "An egg-laying mammal with a duck-like bill and a beaver-like tail." }
+      ]
+    },
+    {
+      "id": "travel",
+      "name": "Travel",
+      "icon": "compass",
+      "words": [
+        { "id": "map",         "text": "map",         "difficulty": 1, "hint": "A drawing that shows where places are." },
+        { "id": "ticket",      "text": "ticket",      "difficulty": 1, "hint": "A small paper or code that lets you board a vehicle." },
+        { "id": "passport",    "text": "passport",    "difficulty": 2, "hint": "An official booklet that proves your nationality at borders." },
+        { "id": "suitcase",    "text": "suitcase",    "difficulty": 2, "hint": "A rectangular bag with wheels you take on a trip." },
+        { "id": "souvenir",    "text": "souvenir",    "difficulty": 3, "hint": "A small object you bring home to remember a place." },
+        { "id": "itinerary",   "text": "itinerary",   "difficulty": 3, "hint": "A planned schedule of where to go and when." },
+        { "id": "layover",     "text": "layover",     "difficulty": 4, "hint": "A break at an airport between two connecting flights." },
+        { "id": "embassy",     "text": "embassy",     "difficulty": 4, "hint": "A country's official mission inside another country's capital." },
+        { "id": "visa",        "text": "visa",        "difficulty": 5, "hint": "A stamp or sticker that authorises you to enter another country." },
+        { "id": "jetlag",      "text": "jetlag",      "difficulty": 5, "hint": "The fatigue from rapidly crossing several time zones." }
+      ]
+    },
+    {
+      "id": "music",
+      "name": "Music",
+      "icon": "note",
+      "words": [
+        { "id": "drum",        "text": "drum",        "difficulty": 1, "hint": "A percussion instrument you hit with sticks or hands." },
+        { "id": "guitar",      "text": "guitar",      "difficulty": 1, "hint": "A string instrument you strum or pluck." },
+        { "id": "chorus",      "text": "chorus",      "difficulty": 2, "hint": "The repeating section of a song between verses." },
+        { "id": "rhythm",      "text": "rhythm",      "difficulty": 2, "hint": "The pattern of beats that makes you nod your head." },
+        { "id": "violin",      "text": "violin",      "difficulty": 3, "hint": "A four-string instrument played with a bow." },
+        { "id": "harmony",     "text": "harmony",     "difficulty": 3, "hint": "Notes sounding together that please the ear." },
+        { "id": "saxophone",   "text": "saxophone",   "difficulty": 4, "hint": "A curved brass wind instrument famous in jazz." },
+        { "id": "metronome",   "text": "metronome",   "difficulty": 4, "hint": "A device that ticks at a steady tempo for practice." },
+        { "id": "arpeggio",    "text": "arpeggio",    "difficulty": 5, "hint": "Playing the notes of a chord one after another instead of together." },
+        { "id": "polyphony",   "text": "polyphony",   "difficulty": 5, "hint": "Music with two or more independent melodic lines at once." }
+      ]
+    },
+    {
+      "id": "movies",
+      "name": "Movies",
+      "icon": "clapper",
+      "words": [
+        { "id": "actor",       "text": "actor",       "difficulty": 1, "hint": "Someone who pretends to be a character on screen." },
+        { "id": "screen",      "text": "screen",      "difficulty": 1, "hint": "The big flat surface where a film is projected." },
+        { "id": "trailer",     "text": "trailer",     "difficulty": 2, "hint": "A short preview that advertises an upcoming film." },
+        { "id": "popcorn",     "text": "popcorn",     "difficulty": 2, "hint": "The salty puffed snack everyone eats at the cinema." },
+        { "id": "director",    "text": "director",    "difficulty": 3, "hint": "The person who gives the cast and crew their creative orders." },
+        { "id": "cameo",       "text": "cameo",       "difficulty": 3, "hint": "A brief, surprise appearance by a famous person in a film." },
+        { "id": "cinematography", "text": "cinematography", "difficulty": 4, "hint": "The craft of capturing images with a film camera — lighting, lenses, framing." },
+        { "id": "soundtrack",  "text": "soundtrack",  "difficulty": 4, "hint": "All the music and audio that plays during a film." },
+        { "id": "mockumentary","text": "mockumentary","difficulty": 5, "hint": "A scripted film shot as if it were a documentary." },
+        { "id": "auteur",      "text": "auteur",      "difficulty": 5, "hint": "A director whose distinctive vision dominates every film they make." }
+      ]
+    }
+  ]
+}

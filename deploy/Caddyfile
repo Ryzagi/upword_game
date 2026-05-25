@@ -1,0 +1,23 @@
+# Caddyfile for upword.live
+#
+# - Auto-issues + renews Let's Encrypt certs for both apex and www
+# - Redirects www → apex so there's one canonical URL
+# - Reverse-proxies everything to the `frontend` nginx container, which
+#   in turn routes /api and /ws to the backend.
+#
+# Override the contact email with the CADDY_ACME_EMAIL env var.
+
+{
+    email {$CADDY_ACME_EMAIL:admin@upword.live}
+}
+
+# Redirect www → apex.
+www.upword.live {
+    redir https://upword.live{uri} permanent
+}
+
+# Main site.
+upword.live {
+    encode zstd gzip
+    reverse_proxy frontend:80
+}
