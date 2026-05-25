@@ -115,8 +115,12 @@ in the Vultr control panel.
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker $USER && newgrp docker
 
-# Clone and start:
+# Clone and configure:
 git clone <your-repo-url> upword && cd upword
+cp .env.example .env
+$EDITOR .env                # set CADDY_ACME_EMAIL + tighten APP_CORS_ORIGINS
+
+# Start:
 docker compose --profile prod up -d --build
 
 # Watch the logs to confirm Caddy got a cert:
