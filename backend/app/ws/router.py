@@ -262,10 +262,16 @@ async def _handle_theme_generate(
     if generator is None:
         raise ThemeGenUnavailableError()
 
+    from app.ai.theme_generator import MAX_PROMPT_LENGTH
+
     prompt = data.get("prompt")
-    if not isinstance(prompt, str) or not prompt.strip():
+    if not isinstance(prompt, str):
         raise ThemeGenInvalidPromptError()
-    clean_prompt = prompt.strip()[:120]
+    clean_prompt = prompt.strip()
+    if not clean_prompt or len(clean_prompt) > MAX_PROMPT_LENGTH:
+        # Reject explicitly rather than silently truncating — truncated
+        # prompts confuse the model and produce useless themes.
+        raise ThemeGenInvalidPromptError()
 
     async with room.lock:
         allowed, err_code = room.can_generate_theme_locked(player_id)

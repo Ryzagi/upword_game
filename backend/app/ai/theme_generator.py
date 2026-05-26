@@ -33,6 +33,10 @@ GENERATION_TIMEOUT_SECONDS = 25.0
 # How many times to retry when the model returns a payload that fails our
 # post-validation (e.g. fewer than 5 words, missing a difficulty tier).
 GENERATION_MAX_ATTEMPTS = 3
+# Max length of the free-text prompt a player can submit. Long enough for
+# a descriptive phrase ("space exploration in the 1960s, soviet side") but
+# short enough to keep the model focused.
+MAX_PROMPT_LENGTH = 400
 
 _THEME_SCHEMA: dict[str, Any] = {
     "name": "generated_theme",
@@ -167,7 +171,7 @@ class ThemeGenerator:
         """A single OpenAI call + validation pass. The caller wraps this in
         a retry loop for ``bad_response`` outcomes."""
         clean_prompt = prompt.strip()
-        if not clean_prompt or len(clean_prompt) > 120:
+        if not clean_prompt or len(clean_prompt) > MAX_PROMPT_LENGTH:
             raise ThemeGenerationError("invalid_prompt")
 
         language_label = _language_label(language)

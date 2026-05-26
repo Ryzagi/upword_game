@@ -8,6 +8,8 @@ import type { ClientEvent } from "../../ws/events";
 const COOLDOWN_SECONDS = 30;
 // Must match MAX_GENERATED_THEMES_PER_ROOM in backend/app/rooms/room.py.
 const ROOM_CAP = 10;
+// Must match MAX_PROMPT_LENGTH in backend/app/ai/theme_generator.py.
+const PROMPT_MAX_LENGTH = 400;
 
 interface Props {
   yourPlayer: PlayerPublic | null;
@@ -265,18 +267,33 @@ function GeneratorForm({
         ? t("lobby.themes.gen_cooldown", { seconds: cooldownLeft })
         : `✨ ${t("lobby.themes.gen_action")}`;
 
+  const charsLeft = PROMPT_MAX_LENGTH - prompt.length;
+  const showCounter = prompt.length >= PROMPT_MAX_LENGTH - 30;
+
   return (
     <form onSubmit={submit} className="flex gap-2 mb-4">
-      <input
-        type="text"
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        placeholder={t("lobby.themes.gen_placeholder")}
-        maxLength={120}
-        disabled={capReached || inFlight}
-        className="field flex-1 !text-sm"
-        aria-label={t("lobby.themes.gen_placeholder")}
-      />
+      <div className="flex-1 relative">
+        <input
+          type="text"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder={t("lobby.themes.gen_placeholder")}
+          maxLength={PROMPT_MAX_LENGTH}
+          disabled={capReached || inFlight}
+          className="field w-full !text-sm"
+          aria-label={t("lobby.themes.gen_placeholder")}
+        />
+        {showCounter && (
+          <span
+            className={
+              "absolute right-2 top-1/2 -translate-y-1/2 numeral text-[0.65rem] tabular-nums " +
+              (charsLeft <= 0 ? "text-rouge font-bold" : "opacity-60")
+            }
+          >
+            {charsLeft}
+          </span>
+        )}
+      </div>
       <button
         type="submit"
         disabled={disabled}

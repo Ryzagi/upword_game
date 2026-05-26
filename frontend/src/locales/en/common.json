@@ -296,7 +296,7 @@
     "theme_gen_rate_limited": "Wait a few seconds before generating again.",
     "theme_gen_cap_reached": "This room has hit its theme-generation limit.",
     "theme_gen_failed": "Couldn't generate that theme — try a different prompt.",
-    "theme_gen_invalid_prompt": "That prompt is too short or too long.",
+    "theme_gen_invalid_prompt": "Prompt is empty or longer than 400 characters.",
     "theme_gen_unavailable": "AI theme generation isn't enabled on this server.",
     "unknown_error": "Something went wrong."
   }
