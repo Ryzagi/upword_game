@@ -71,6 +71,9 @@ export default function Index() {
           <h1 className="headline-tight text-[14vw] md:text-[7.2rem] mt-3 md:mt-4 break-words">
             {t("menu.title")}
           </h1>
+          <p className="mt-1 text-base md:text-lg font-mono uppercase tracking-[0.18em] opacity-80">
+            {t("menu.subtitle")}
+          </p>
           <p className="mt-5 md:mt-7 text-lg md:text-xl font-medium max-w-xl">
             <span className="hl-coral">{t("menu.tagline_lead")}</span>{" "}
             {t("menu.tagline_tail")}

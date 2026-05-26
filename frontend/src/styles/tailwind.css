@@ -382,6 +382,38 @@ body::before {
   border-color: #14110a;
   box-shadow: 2px 2px 0 #14110a, inset 0 -3px 0 rgba(0, 0, 0, 0.2);
 }
+/* ----- chat bubbles ----- */
+
+.chat-bubble {
+  display: inline-block;
+  padding: 0.4rem 0.7rem;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  box-shadow: 2px 2px 0 var(--shadow-color);
+  word-break: break-word;
+  max-width: 100%;
+}
+.chat-bubble-other {
+  background: var(--card);
+  color: var(--ink);
+  border-bottom-left-radius: 4px;
+}
+.chat-bubble-you {
+  background: var(--sky);
+  color: #14110a;
+  border-color: #14110a;
+  border-bottom-right-radius: 4px;
+}
+.chat-bubble-correct {
+  background: var(--mint);
+  color: #0e4220;
+  border-color: #0e4220;
+  font-weight: 700;
+  box-shadow: 2px 2px 0 #0e4220;
+}
+
 .chip-toggle-claimed {
   background: repeating-linear-gradient(
     135deg,

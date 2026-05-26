@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function ChatFeed({ messages, players, teams, yourPlayerId }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const listRef = useRef<HTMLOListElement | null>(null);
 
   // Keep the most recent guess in view as new messages stream in.
@@ -21,9 +21,14 @@ export function ChatFeed({ messages, players, teams, yourPlayerId }: Props) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
+  const timeFormatter = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   return (
     <section className="bento p-4 md:p-5">
-      <div className="flex items-baseline justify-between mb-2">
+      <div className="flex items-baseline justify-between mb-3">
         <h2 className="headline text-lg flex items-center gap-2">
           <span className="marker marker-mint" aria-hidden />
           {t("play.chat_title")}
@@ -40,57 +45,113 @@ export function ChatFeed({ messages, players, teams, yourPlayerId }: Props) {
           role="log"
           aria-live="polite"
           aria-relevant="additions"
-          className="max-h-72 overflow-y-auto pr-1 space-y-1.5 text-sm"
+          className="max-h-80 overflow-y-auto pr-1 space-y-2.5 text-sm"
         >
-          {messages.map((m) => {
+          {messages.map((m, i) => {
             const player = players.find((p) => p.id === m.player_id);
             const team = teams.find((t) => t.id === m.team_id);
             const isYou = m.player_id === yourPlayerId;
+            const teamColor = team?.color ?? "var(--ink-faint)";
+            const nickname = player?.nickname ?? "—";
+            const initial = (nickname[0] ?? "?").toUpperCase();
+
+            // Collapse the avatar + name on consecutive messages from the
+            // same author, but always show them on a correct-guess row so
+            // the celebration reads cleanly.
+            const prev = messages[i - 1];
+            const compact =
+              !!prev && prev.player_id === m.player_id && !m.correct && !prev.correct;
+
+            const timeLabel = (() => {
+              try {
+                return timeFormatter.format(new Date(m.at));
+              } catch {
+                return "";
+              }
+            })();
+
             return (
               <li
                 key={m.id}
                 className={
-                  "flex items-baseline gap-2 leading-snug " +
-                  (m.correct
-                    ? "bg-mint/40 rounded px-1.5 py-0.5"
-                    : "")
+                  "flex gap-2 " +
+                  (isYou ? "flex-row-reverse" : "flex-row") +
+                  (compact ? " -mt-1.5" : "")
                 }
               >
-                <span
-                  className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                {/* Avatar — hidden on compact follow-ups, kept as a spacer
+                    so the bubble alignment stays consistent. */}
+                <div
                   aria-hidden
+                  className={
+                    "shrink-0 grid place-items-center w-7 h-7 rounded-full font-bold text-[0.7rem] uppercase " +
+                    (compact ? "opacity-0" : "")
+                  }
                   style={{
-                    background: team?.color ?? "var(--ink-faint)",
-                    transform: "translateY(-1px)",
+                    background: teamColor,
+                    color: "#fff",
+                    border: "2px solid var(--ink)",
                   }}
-                />
-                <span
-                  className={
-                    "font-semibold shrink-0 " +
-                    (isYou ? "underline decoration-coral" : "")
-                  }
-                  style={{ color: team?.color ?? "var(--ink)" }}
                 >
-                  {player?.nickname ?? "—"}
-                </span>
-                <span
+                  {initial}
+                </div>
+
+                <div
                   className={
-                    "break-words flex-1 min-w-0 " +
-                    (m.correct
-                      ? "text-emerald-700 italic"
-                      : "text-ink")
+                    "flex flex-col min-w-0 max-w-[80%] " +
+                    (isYou ? "items-end" : "items-start")
                   }
                 >
-                  {m.correct ? t("play.chat_guessed_correctly") : m.text}
-                </span>
-                {m.correct && (
-                  <span
-                    aria-label={t("play.chat_correct_aria")}
-                    className="text-emerald-600 font-bold"
+                  {!compact && (
+                    <div
+                      className={
+                        "flex items-baseline gap-2 mb-0.5 px-0.5 text-xs " +
+                        (isYou ? "flex-row-reverse" : "")
+                      }
+                    >
+                      <span
+                        className={
+                          "font-semibold " +
+                          (isYou ? "underline decoration-coral" : "")
+                        }
+                        style={{ color: teamColor }}
+                      >
+                        {nickname}
+                      </span>
+                      {timeLabel && (
+                        <span className="opacity-50 numeral text-[0.65rem]">
+                          {timeLabel}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div
+                    className={
+                      "chat-bubble " +
+                      (m.correct
+                        ? "chat-bubble-correct"
+                        : isYou
+                          ? "chat-bubble-you"
+                          : "chat-bubble-other")
+                    }
                   >
-                    ✓
-                  </span>
-                )}
+                    {m.correct ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span aria-hidden>🎉</span>
+                        <span>{t("play.chat_guessed_correctly")}</span>
+                        <span
+                          aria-label={t("play.chat_correct_aria")}
+                          className="font-bold"
+                        >
+                          ✓
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="break-words">{m.text}</span>
+                    )}
+                  </div>
+                </div>
               </li>
             );
           })}

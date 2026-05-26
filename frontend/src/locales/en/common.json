@@ -1,6 +1,7 @@
 {
   "menu": {
-    "title": "Word Describer",
+    "title": "UpWord",
+    "subtitle": "word-describing party game",
     "eyebrow": "real-time party word game",
     "tagline_lead": "One types.",
     "tagline_tail": "Everyone else races to guess. Solo or in teams.",
