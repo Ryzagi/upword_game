@@ -114,3 +114,23 @@ class DescriberCannotGuessError(DomainError):
 
 class BadThemePicksError(DomainError):
     code = "bad_theme_picks"
+
+
+class ThemeGenRateLimitedError(DomainError):
+    code = "theme_gen_rate_limited"
+
+
+class ThemeGenCapReachedError(DomainError):
+    code = "theme_gen_cap_reached"
+
+
+class ThemeGenFailedError(DomainError):
+    code = "theme_gen_failed"
+
+
+class ThemeGenInvalidPromptError(DomainError):
+    code = "theme_gen_invalid_prompt"
+
+
+class ThemeGenUnavailableError(DomainError):
+    code = "theme_gen_unavailable"

@@ -129,6 +129,9 @@ async def _dispatch(ws: WebSocket, room: Room, player_id: str, frame: Any) -> No
         if event_type == "lobby/theme_picks_set":
             await _handle_theme_picks_set(room, player_id, data)
             return
+        if event_type == "lobby/theme_generate":
+            await _handle_theme_generate(ws, room, player_id, data)
+            return
         # --- game flow ---
         if event_type == "lobby/start_game":
             _require_host(room, player_id)
@@ -235,6 +238,95 @@ async def _handle_theme_picks_set(
         raise InvalidPayloadError()
     await room.set_player_theme_picks(player_id, [str(t) for t in theme_ids])
     await room.broadcast({"type": "lobby/state", "data": _lobby_state(room)})
+
+
+async def _handle_theme_generate(
+    ws: WebSocket, room: Room, player_id: str, data: dict[str, Any]
+) -> None:
+    """Player asks for a new AI-generated theme. The generator call happens
+    OUTSIDE the room lock (it's a multi-second HTTP round-trip) — we hold
+    the lock only for the cooldown/cap check up front and for the append
+    at the end. The generator itself is idempotent; the only race we care
+    about is two players both blowing through the cap simultaneously, which
+    the second lock acquisition catches."""
+    from app.ai.theme_generator import ThemeGenerationError
+    from app.models.errors import (
+        ThemeGenCapReachedError,
+        ThemeGenFailedError,
+        ThemeGenInvalidPromptError,
+        ThemeGenRateLimitedError,
+        ThemeGenUnavailableError,
+    )
+
+    generator = getattr(ws.app.state, "theme_generator", None)
+    if generator is None:
+        raise ThemeGenUnavailableError()
+
+    prompt = data.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ThemeGenInvalidPromptError()
+    clean_prompt = prompt.strip()[:120]
+
+    async with room.lock:
+        allowed, err_code = room.can_generate_theme_locked(player_id)
+        if not allowed:
+            if err_code == "theme_gen_rate_limited":
+                raise ThemeGenRateLimitedError()
+            if err_code == "theme_gen_cap_reached":
+                raise ThemeGenCapReachedError()
+            raise ThemeGenFailedError()
+        existing_ids = room._all_theme_ids_locked()  # noqa: SLF001
+        language = room.language
+
+    # Heavy call — outside the lock.
+    try:
+        theme = await generator.generate(
+            prompt=clean_prompt,
+            language=language,
+            existing_theme_ids=existing_ids,
+        )
+    except ThemeGenerationError as e:
+        log.info("theme generation failed: %s", e)
+        if str(e) == "invalid_prompt":
+            raise ThemeGenInvalidPromptError() from e
+        raise ThemeGenFailedError() from e
+    except Exception as e:
+        log.warning("theme generation crashed: %s", e)
+        raise ThemeGenFailedError() from e
+
+    # Re-acquire the lock and re-check the cap (someone else may have
+    # generated theirs while ours was in flight).
+    async with room.lock:
+        if len(room.extra_themes) >= 5:
+            raise ThemeGenCapReachedError()
+        if theme.id in room._all_theme_ids_locked():  # noqa: SLF001
+            # Rare collision after our pre-check — bail rather than overwrite.
+            raise ThemeGenFailedError()
+        room.add_generated_theme(theme, player_id)
+        snapshot_corpus = [
+            {
+                "id": t.id,
+                "name": t.name,
+                "icon": t.icon,
+                "generated_by": room.theme_generators.get(t.id),
+            }
+            for t in room._all_themes_locked()  # noqa: SLF001
+        ]
+
+    await room.broadcast(
+        {
+            "type": "lobby/theme_added",
+            "data": {
+                "theme": {
+                    "id": theme.id,
+                    "name": theme.name,
+                    "icon": theme.icon,
+                    "generated_by": player_id,
+                },
+                "corpus_themes": snapshot_corpus,
+            },
+        }
+    )
 
 
 async def _handle_settings_set(room: Room, data: dict[str, Any]) -> None:

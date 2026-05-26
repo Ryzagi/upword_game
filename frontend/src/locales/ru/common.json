@@ -74,7 +74,13 @@
       "board_preview_label": "Поле составят",
       "board_preview_empty": "Темы пока не выбраны.",
       "their_picks": "темы",
-      "claimed_by": "Уже выбрана: {{name}}"
+      "claimed_by": "Уже выбрана: {{name}}",
+      "generated_by": "Сгенерировал(а): {{name}}",
+      "gen_placeholder": "Добавьте тему — например, «искусство Ренессанса»",
+      "gen_action": "Сгенерировать",
+      "gen_in_flight": "Генерирую…",
+      "gen_cooldown": "Подождите {{seconds}}с",
+      "gen_cap_reached": "Лимит сгенерированных тем ({{count}}/5)"
     },
     "nickname_edit_aria": "Изменить имя",
     "code_copy_aria": "Скопировать код комнаты",
@@ -290,6 +296,11 @@
     "language_unsupported": "Этот язык пока не поддерживается.",
     "network_error": "Сервер недоступен.",
     "translation_unavailable": "Сервис перевода сейчас недоступен.",
+    "theme_gen_rate_limited": "Подождите несколько секунд перед следующей генерацией.",
+    "theme_gen_cap_reached": "В этой комнате достигнут лимит сгенерированных тем.",
+    "theme_gen_failed": "Не удалось сгенерировать тему — попробуйте другой запрос.",
+    "theme_gen_invalid_prompt": "Запрос слишком короткий или слишком длинный.",
+    "theme_gen_unavailable": "Генерация тем ИИ не включена на этом сервере.",
     "unknown_error": "Что-то пошло не так."
   }
 }

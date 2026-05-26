@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.corpus.loader import normalise
-from app.corpus.schema import Corpus
+from app.corpus.schema import Corpus, Theme
 from app.game.board import Board
 from app.game.rotation import compute_rotation
 from app.game.round import CorrectTeamEntry, Round
@@ -61,6 +61,10 @@ def _max_picks_per_player(player_count: int) -> int:
 
 # Interval between successive letter reveals during an active round.
 LETTER_REVEAL_INTERVAL_SECONDS = 40.0
+
+# AI theme generator caps.
+MAX_GENERATED_THEMES_PER_ROOM = 5
+THEME_GEN_COOLDOWN_SECONDS = 30.0
 
 RoomState = Literal["lobby", "board", "round", "ended"]
 
@@ -113,6 +117,17 @@ class Room:
         self._tokens: dict[str, str] = {}  # token -> player_id
         self._connections: dict[str, WebSocket] = {}
         self.lock = asyncio.Lock()
+
+        # AI-generated themes for this room only. They augment self.corpus
+        # without mutating it (the corpus is shared across all rooms).
+        # Mapping is theme_id -> Theme; insertion order is preserved so the
+        # picker UI shows them in the order they were generated.
+        self.extra_themes: dict[str, Theme] = {}
+        # Attribution: theme_id -> player_id who generated it.
+        self.theme_generators: dict[str, str] = {}
+        # Per-player cooldown timestamps for the AI theme generator
+        # (player_id -> monotonic seconds at last successful generation).
+        self._theme_gen_last_at: dict[str, float] = {}
 
     # ====================================================================== roster
 
@@ -266,7 +281,7 @@ class Room:
                 raise InvalidTokenError()
             if self.corpus is None:
                 raise BadThemePicksError()
-            corpus_ids = {t.id for t in self.corpus.themes}
+            corpus_ids = self._all_theme_ids_locked()
             for tid in theme_ids:
                 if tid not in corpus_ids:
                     raise BadThemePicksError()
@@ -288,6 +303,48 @@ class Room:
                         raise BadThemePicksError()
             player.theme_picks = unique
             return player
+
+    # =============================================================== themes (read)
+
+    def _all_themes_locked(self) -> list[Theme]:
+        """All themes a room can pick from: the shared corpus + per-room
+        AI-generated additions. Used everywhere the old code read
+        ``self.corpus.themes`` directly.
+        """
+        base = list(self.corpus.themes) if self.corpus is not None else []
+        return base + list(self.extra_themes.values())
+
+    def _all_theme_ids_locked(self) -> set[str]:
+        ids = {t.id for t in self.corpus.themes} if self.corpus is not None else set()
+        ids.update(self.extra_themes.keys())
+        return ids
+
+    # ====================================================== theme generation (AI)
+
+    def add_generated_theme(self, theme: Theme, generator_player_id: str) -> None:
+        """Append an AI-generated theme to this room only. The caller is
+        responsible for cap / cooldown enforcement and for holding the
+        room lock — see ``ws.router._handle_theme_generate``."""
+        self.extra_themes[theme.id] = theme
+        self.theme_generators[theme.id] = generator_player_id
+        loop = asyncio.get_event_loop()
+        self._theme_gen_last_at[generator_player_id] = loop.time()
+
+    def can_generate_theme_locked(self, player_id: str) -> tuple[bool, str | None]:
+        """Predicate for whether the player can generate right now. Returns
+        ``(allowed, error_code)``. Caller must hold ``self.lock``.
+        """
+        if self.state != "lobby":
+            return False, "room_not_in_lobby"
+        if len(self.extra_themes) >= MAX_GENERATED_THEMES_PER_ROOM:
+            return False, "theme_gen_cap_reached"
+        last = self._theme_gen_last_at.get(player_id)
+        if last is not None:
+            loop = asyncio.get_event_loop()
+            elapsed = loop.time() - last
+            if elapsed < THEME_GEN_COOLDOWN_SECONDS:
+                return False, "theme_gen_rate_limited"
+        return True, None
 
     async def set_player_team(self, player_id: str, team_id: str | None) -> Player:
         async with self.lock:
@@ -391,7 +448,7 @@ class Room:
                 picked_ids.update(p.theme_picks)
             selected_themes = [
                 {"id": t.id, "name": t.name, "icon": t.icon}
-                for t in self.corpus.themes
+                for t in self._all_themes_locked()
                 if t.id in picked_ids
             ]
             self.board = Board(themes=selected_themes)
@@ -400,7 +457,7 @@ class Room:
 
     def _validate_theme_picks_locked(self) -> None:
         assert self.corpus is not None
-        corpus_ids = {t.id for t in self.corpus.themes}
+        corpus_ids = self._all_theme_ids_locked()
         max_picks = _max_picks_per_player(len(self.players))
         for player in self.players.values():
             picks = player.theme_picks
@@ -452,6 +509,7 @@ class Room:
                 theme_id,
                 difficulty,
                 exclude_ids=self._used_word_ids,
+                extra_themes=self.extra_themes.values(),
             )
             if word is None:
                 raise NoWordsAvailableError()
@@ -880,8 +938,13 @@ class Room:
         }
         if self.corpus is not None:
             snap["corpus_themes"] = [
-                {"id": t.id, "name": t.name, "icon": t.icon}
-                for t in self.corpus.themes
+                {
+                    "id": t.id,
+                    "name": t.name,
+                    "icon": t.icon,
+                    "generated_by": self.theme_generators.get(t.id),
+                }
+                for t in self._all_themes_locked()
             ]
         if self.board is not None:
             snap["board"] = self.board.public()

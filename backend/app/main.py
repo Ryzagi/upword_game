@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
+from app.ai.theme_generator import ThemeGenerator
 from app.api.corpus import router as corpus_router
 from app.api.rooms import router as rooms_router
 from app.api.translate import router as translate_router
@@ -38,6 +39,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.translator = translator
     app.state.translation_cache = TranslationCache()
     app.state._translation_http_client = http_client
+
+    # AI theme generator — only enabled if a key is configured. Otherwise
+    # the WS handler short-circuits with theme_gen_unavailable.
+    if settings.openai_api_key:
+        app.state.theme_generator = ThemeGenerator(
+            api_key=settings.openai_api_key,
+            model=settings.openai_model,
+            reasoning_effort=settings.openai_reasoning_effort,
+        )
+    else:
+        app.state.theme_generator = None
 
     try:
         yield

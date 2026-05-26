@@ -256,6 +256,10 @@ export const useRoomStore = create<RoomStoreState>((set) => ({
               dislikes: event.data.dislikes,
             },
           };
+        case "lobby/theme_added":
+          return {
+            corpusThemes: event.data.corpus_themes,
+          };
         case "round/letter_reveal":
           return current.currentRound
             ? {

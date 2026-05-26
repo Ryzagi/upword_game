@@ -63,6 +63,8 @@ export interface ThemeRef {
   id: ThemeId;
   name: string;
   icon?: string | null;
+  /** Player id, if this theme was AI-generated in the room. */
+  generated_by?: PlayerId | null;
 }
 
 export interface BoardCellRef {

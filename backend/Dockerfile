@@ -26,7 +26,8 @@ RUN pip install --upgrade pip \
       "pydantic-settings>=2.2" \
       "httpx>=0.27" \
       "structlog>=24.1" \
-      "websockets>=12.0"
+      "websockets>=12.0" \
+      "openai>=1.40"
 
 # App + corpus.
 COPY backend/app ./app

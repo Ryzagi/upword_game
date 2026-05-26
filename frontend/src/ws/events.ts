@@ -12,6 +12,7 @@ import type {
   TeamId,
   TeamPublic,
   ThemeId,
+  ThemeRef,
 } from "../api/rooms";
 
 // ----- Server → Client -----
@@ -151,6 +152,14 @@ export interface RoundLetterRevealEvent {
   };
 }
 
+export interface LobbyThemeAddedEvent {
+  type: "lobby/theme_added";
+  data: {
+    theme: ThemeRef;
+    corpus_themes: ThemeRef[];
+  };
+}
+
 export interface ServerPingEvent {
   type: "server/ping";
   data?: undefined;
@@ -177,6 +186,7 @@ export type ServerEvent =
   | GuessFeedEvent
   | ReactionStateEvent
   | RoundLetterRevealEvent
+  | LobbyThemeAddedEvent
   | RoundEndedEvent
   | GameEndedEvent
   | ServerPingEvent
@@ -229,6 +239,11 @@ export interface LobbyThemePicksSetEvent {
   data: { theme_ids: ThemeId[] };
 }
 
+export interface LobbyThemeGenerateEvent {
+  type: "lobby/theme_generate";
+  data: { prompt: string };
+}
+
 export interface RoundPickCellEvent {
   type: "round/pick_cell";
   data: { theme_id: ThemeId; difficulty: number };
@@ -279,6 +294,7 @@ export type ClientEvent =
   | LobbySettingsSetEvent
   | LobbyStartGameEvent
   | LobbyThemePicksSetEvent
+  | LobbyThemeGenerateEvent
   | RoundPickCellEvent
   | RoundConcedeEvent
   | RoundForceEndEvent

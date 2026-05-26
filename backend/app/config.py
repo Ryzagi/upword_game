@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     # Set true in test environments to use the NoopTranslator stub.
     translator_disabled: bool = False
 
+    # OpenAI — used by the in-lobby AI theme generator.
+    openai_api_key: str = ""
+    openai_model: str = "gpt-5.4-2026-03-05"
+    # "low" | "medium" | "high" — passed through as `reasoning_effort` on
+    # models that support it; ignored on models that don't.
+    openai_reasoning_effort: str = "medium"
+
 
 @lru_cache
 def get_settings() -> Settings:

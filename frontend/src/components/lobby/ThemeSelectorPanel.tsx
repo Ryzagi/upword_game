@@ -1,7 +1,12 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { PlayerPublic, ThemeRef } from "../../api/rooms";
+import { useRoomStore } from "../../stores/useRoomStore";
 import type { ClientEvent } from "../../ws/events";
+
+const COOLDOWN_SECONDS = 30;
+const ROOM_CAP = 5;
 
 interface Props {
   yourPlayer: PlayerPublic | null;
@@ -33,12 +38,23 @@ export function ThemeSelectorPanel({
     }
   }
 
+  // Quick lookup: which themes were AI-generated, and by whom.
+  const generatorById = new Map<string, string>();
+  for (const theme of corpusThemes) {
+    if (theme.generated_by) generatorById.set(theme.id, theme.generated_by);
+  }
+  const playerById = new Map(players.map((p) => [p.id, p]));
+
   // Union of every player's picks → the board the host will start with.
   const unionIds = new Set<string>();
   for (const p of players) {
     for (const id of p.theme_picks ?? []) unionIds.add(id);
   }
   const unionThemes = corpusThemes.filter((t) => unionIds.has(t.id));
+
+  // ------- AI generator state -------
+  const generatedCount = corpusThemes.filter((t) => t.generated_by).length;
+  const capReached = generatedCount >= ROOM_CAP;
 
   function toggle(themeId: string) {
     if (!yourPlayer) return;
@@ -81,6 +97,12 @@ export function ThemeSelectorPanel({
         </span>
       </p>
 
+      <GeneratorForm
+        send={send}
+        capReached={capReached}
+        generatedCount={generatedCount}
+      />
+
       {corpusThemes.length === 0 ? (
         <p className="text-sm opacity-70">{t("lobby.themes.empty_state")}</p>
       ) : (
@@ -91,11 +113,17 @@ export function ThemeSelectorPanel({
             const claimed = ownerName !== undefined;
             const atCap = !selected && atMax && maxPicks > 1;
             const disabled = claimed || atCap;
+            const generatorId = generatorById.get(theme.id);
+            const generatorName = generatorId
+              ? playerById.get(generatorId)?.nickname
+              : undefined;
             const tooltip = claimed
               ? t("lobby.themes.claimed_by", { name: ownerName })
               : atCap
                 ? t("lobby.themes.max_reached", { count: maxPicks })
-                : undefined;
+                : generatorName
+                  ? t("lobby.themes.generated_by", { name: generatorName })
+                  : undefined;
             return (
               <li key={theme.id}>
                 <button
@@ -115,6 +143,11 @@ export function ThemeSelectorPanel({
                   aria-pressed={selected}
                   aria-disabled={disabled || undefined}
                 >
+                  {generatorName && (
+                    <span aria-hidden className="mr-0.5">
+                      ✨
+                    </span>
+                  )}
                   {selected && (
                     <span aria-hidden className="mr-1">
                       ✓
@@ -152,5 +185,111 @@ export function ThemeSelectorPanel({
         )}
       </div>
     </section>
+  );
+}
+
+// ----------------------------------------------------- AI generator form
+
+function GeneratorForm({
+  send,
+  capReached,
+  generatedCount,
+}: {
+  send: (event: ClientEvent) => boolean;
+  capReached: boolean;
+  generatedCount: number;
+}) {
+  const { t } = useTranslation();
+  const [prompt, setPrompt] = useState("");
+  const [inFlight, setInFlight] = useState(false);
+  const [cooldownLeft, setCooldownLeft] = useState(0);
+  const lastError = useRoomStore((s) => s.lastError);
+  const corpusThemes = useRoomStore((s) => s.corpusThemes);
+
+  // When our optimistic in-flight request resolves (either by a new theme
+  // landing in corpusThemes or an error showing up), drop the spinner +
+  // start the cooldown timer.
+  useEffect(() => {
+    if (!inFlight) return;
+    setInFlight(false);
+    setCooldownLeft(COOLDOWN_SECONDS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [corpusThemes.length]);
+
+  // If the server responded with an error, drop the spinner and let the
+  // user retry sooner.
+  useEffect(() => {
+    if (!lastError || !inFlight) return;
+    const code = lastError.code;
+    if (
+      code === "theme_gen_rate_limited" ||
+      code === "theme_gen_cap_reached" ||
+      code === "theme_gen_failed" ||
+      code === "theme_gen_invalid_prompt" ||
+      code === "theme_gen_unavailable"
+    ) {
+      setInFlight(false);
+    }
+  }, [lastError, inFlight]);
+
+  // Tick the cooldown timer.
+  useEffect(() => {
+    if (cooldownLeft <= 0) return;
+    const id = window.setInterval(() => {
+      setCooldownLeft((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [cooldownLeft]);
+
+  const onCooldown = cooldownLeft > 0;
+  const trimmed = prompt.trim();
+  const disabled = capReached || onCooldown || inFlight || trimmed.length === 0;
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (disabled) return;
+    send({ type: "lobby/theme_generate", data: { prompt: trimmed } });
+    setInFlight(true);
+    setPrompt("");
+  }
+
+  const buttonLabel = capReached
+    ? t("lobby.themes.gen_cap_reached", { count: generatedCount })
+    : inFlight
+      ? t("lobby.themes.gen_in_flight")
+      : onCooldown
+        ? t("lobby.themes.gen_cooldown", { seconds: cooldownLeft })
+        : `✨ ${t("lobby.themes.gen_action")}`;
+
+  return (
+    <form onSubmit={submit} className="flex gap-2 mb-4">
+      <input
+        type="text"
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder={t("lobby.themes.gen_placeholder")}
+        maxLength={120}
+        disabled={capReached || inFlight}
+        className="field flex-1 !text-sm"
+        aria-label={t("lobby.themes.gen_placeholder")}
+      />
+      <button
+        type="submit"
+        disabled={disabled}
+        className={
+          "btn btn-sm shrink-0 " + (capReached ? "btn-ghost" : "btn-coral")
+        }
+        title={buttonLabel}
+      >
+        {inFlight ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="animate-spin">⟳</span>
+            <span className="hidden sm:inline">{t("lobby.themes.gen_in_flight")}</span>
+          </span>
+        ) : (
+          <span className="whitespace-nowrap">{buttonLabel}</span>
+        )}
+      </button>
+    </form>
   );
 }

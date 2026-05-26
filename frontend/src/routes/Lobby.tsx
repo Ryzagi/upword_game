@@ -466,6 +466,11 @@ const LOBBY_ONLY_ERROR_CODES = new Set([
   "team_name_taken",
   "team_name_invalid",
   "room_not_in_lobby",
+  "theme_gen_rate_limited",
+  "theme_gen_cap_reached",
+  "theme_gen_failed",
+  "theme_gen_invalid_prompt",
+  "theme_gen_unavailable",
 ]);
 
 function isLobbyOnlyErrorIrrelevantNow(code: string, state: string): boolean {
