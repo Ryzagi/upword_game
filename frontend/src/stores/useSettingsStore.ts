@@ -10,11 +10,14 @@ interface SettingsState {
   highContrast: boolean;
   // null = follow system; otherwise explicit override
   reducedMotion: boolean | null;
+  // Background music volume, 0..100. 0 = muted.
+  musicVolume: number;
 
   setTheme: (t: Theme) => void;
   setFontSize: (s: FontSize) => void;
   setHighContrast: (v: boolean) => void;
   setReducedMotion: (v: boolean | null) => void;
+  setMusicVolume: (v: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -24,11 +27,13 @@ export const useSettingsStore = create<SettingsState>()(
       fontSize: "normal",
       highContrast: false,
       reducedMotion: null,
+      musicVolume: 25,
 
       setTheme: (t) => set({ theme: t }),
       setFontSize: (s) => set({ fontSize: s }),
       setHighContrast: (v) => set({ highContrast: v }),
       setReducedMotion: (v) => set({ reducedMotion: v }),
+      setMusicVolume: (v) => set({ musicVolume: Math.max(0, Math.min(100, v)) }),
     }),
     { name: "app.settings" }
   )

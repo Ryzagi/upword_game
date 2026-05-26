@@ -140,6 +140,8 @@
     "guesser_message": "{{describer}} is describing…",
     "letter_pattern_label": "The word",
     "letter_pattern_hint": "A new letter is revealed every 40 seconds.",
+    "letter_pattern_count_aria": "{{revealed}} of {{total}} letters revealed",
+    "guess_typed_count_aria": "{{typed}} of {{total}} letters typed",
     "guess_placeholder": "Type your guess and press Enter",
     "guess_input_aria": "Your guess",
     "guess_submit": "Guess",
@@ -217,7 +219,10 @@
     "enabled": "On",
     "disabled": "Off",
     "reduced_motion": "Reduced motion",
-    "auto_system": "System"
+    "auto_system": "System",
+    "music_volume": "Music volume",
+    "music_mute": "Mute music",
+    "music_unmute": "Unmute music"
   },
   "rules": {
     "title": "How to play",

@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.api.corpus import router as corpus_router
@@ -58,6 +59,16 @@ def create_app() -> FastAPI:
     app.include_router(rooms_router, prefix="/api/rooms", tags=["rooms"])
     app.include_router(translate_router, prefix="/api/translate", tags=["translate"])
     app.include_router(ws_router, prefix="/ws")
+
+    # Static music directory (background-music.mp3 etc.). Mounted only when
+    # the directory exists so dev environments without media files still boot.
+    music_dir = settings.corpus_dir / "music"
+    if music_dir.is_dir():
+        app.mount(
+            "/api/music",
+            StaticFiles(directory=music_dir),
+            name="music",
+        )
 
     @app.get("/healthz")
     def healthz() -> dict[str, object]:

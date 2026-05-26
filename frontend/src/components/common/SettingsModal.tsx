@@ -53,6 +53,8 @@ function Preferences() {
   const { t, i18n } = useTranslation();
   const theme = useSettingsStore((s) => s.theme);
   const setTheme = useSettingsStore((s) => s.setTheme);
+  const musicVolume = useSettingsStore((s) => s.musicVolume);
+  const setMusicVolume = useSettingsStore((s) => s.setMusicVolume);
 
   return (
     <div className="space-y-3">
@@ -81,6 +83,31 @@ function Preferences() {
           value={theme}
           onChange={setTheme}
         />
+      </Row>
+      <Row label={t("settings.music_volume")}>
+        <div className="flex items-center gap-3 min-w-[180px]">
+          <button
+            type="button"
+            onClick={() => setMusicVolume(musicVolume === 0 ? 25 : 0)}
+            aria-label={musicVolume === 0 ? t("settings.music_unmute") : t("settings.music_mute")}
+            className="text-lg leading-none"
+            title={musicVolume === 0 ? t("settings.music_unmute") : t("settings.music_mute")}
+          >
+            {musicVolume === 0 ? "🔇" : musicVolume < 33 ? "🔈" : musicVolume < 66 ? "🔉" : "🔊"}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={musicVolume}
+            onChange={(e) => setMusicVolume(Number(e.target.value))}
+            className="flex-1"
+            aria-label={t("settings.music_volume")}
+          />
+          <span className="numeral text-xs w-8 text-right tabular-nums">
+            {musicVolume}
+          </span>
+        </div>
       </Row>
     </div>
   );

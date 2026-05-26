@@ -141,6 +141,8 @@
     "guesser_message": "{{describer}} описывает…",
     "letter_pattern_label": "Слово",
     "letter_pattern_hint": "Каждые 40 секунд открывается одна буква.",
+    "letter_pattern_count_aria": "Открыто {{revealed}} из {{total}} букв",
+    "guess_typed_count_aria": "Напечатано {{typed}} из {{total}} букв",
     "guess_placeholder": "Введите догадку и нажмите Enter",
     "guess_input_aria": "Ваша догадка",
     "guess_submit": "Угадать",
@@ -220,7 +222,10 @@
     "enabled": "Вкл.",
     "disabled": "Выкл.",
     "reduced_motion": "Уменьшить движение",
-    "auto_system": "Система"
+    "auto_system": "Система",
+    "music_volume": "Громкость музыки",
+    "music_mute": "Выключить музыку",
+    "music_unmute": "Включить музыку"
   },
   "rules": {
     "title": "Как играть",

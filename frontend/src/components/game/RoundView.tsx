@@ -158,7 +158,13 @@ function LetterPatternStrip({
     <div className="bento bento-yellow p-4 md:p-5">
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
         <p className="eyebrow">{t("play.letter_pattern_label")}</p>
-        <span className="numeral text-xs opacity-70">
+        <span
+          className="numeral text-base md:text-lg font-bold tabular-nums"
+          aria-label={t("play.letter_pattern_count_aria", {
+            revealed: revealedCount,
+            total: letterCount,
+          })}
+        >
           {revealedCount}/{letterCount}
         </span>
       </div>
@@ -386,8 +392,20 @@ function GuesserPanel({
 
   const inAttemptsMode = settings.mode === "attempts";
 
+  // Count the non-space characters the guesser has typed — used in the
+  // "n/total" counter next to the input as a length-matching hint.
+  const typedLetterCount = countLetters(guess);
+
   return (
     <div className="space-y-4">
+      {letterPattern && letterCount !== null && letterCount > 0 && (
+        <LetterPatternStrip
+          pattern={letterPattern}
+          letterCount={letterCount}
+          revealedIndices={revealedIndices}
+        />
+      )}
+
       <div className="bento bento-mint p-7 md:p-10">
         <p className="eyebrow">
           {t("play.guesser_kicker", { describer: describer?.nickname ?? "" })}
@@ -405,14 +423,6 @@ function GuesserPanel({
         </div>
       </div>
 
-      {letterPattern && letterCount !== null && letterCount > 0 && (
-        <LetterPatternStrip
-          pattern={letterPattern}
-          letterCount={letterCount}
-          revealedIndices={revealedIndices}
-        />
-      )}
-
       <div className="bento p-4 md:p-5">
         {hasAlreadyGuessedCorrectly ? (
           <div className="bento bento-flat bg-white/0 p-3 text-center">
@@ -427,7 +437,7 @@ function GuesserPanel({
               e.preventDefault();
               submit();
             }}
-            className="flex gap-2"
+            className="flex gap-2 items-center"
           >
             <input
               type="text"
@@ -439,6 +449,26 @@ function GuesserPanel({
               aria-label={t("play.guess_input_aria")}
               autoFocus
             />
+            {letterCount !== null && letterCount > 0 && (
+              <span
+                className={
+                  "numeral text-base md:text-lg font-bold tabular-nums shrink-0 px-2 " +
+                  (typedLetterCount === letterCount
+                    ? "text-emerald-700"
+                    : "opacity-70")
+                }
+                aria-label={t("play.guess_typed_count_aria", {
+                  typed: typedLetterCount,
+                  total: letterCount,
+                })}
+                title={t("play.guess_typed_count_aria", {
+                  typed: typedLetterCount,
+                  total: letterCount,
+                })}
+              >
+                {typedLetterCount}/{letterCount}
+              </span>
+            )}
             <button
               type="submit"
               disabled={!guess.trim()}
@@ -495,4 +525,14 @@ function GuesserPanel({
       )}
     </div>
   );
+}
+
+/** Count non-whitespace characters — matches how the round's letter_count
+ * is computed on the server (which skips spaces). */
+function countLetters(text: string): number {
+  let n = 0;
+  for (const ch of text) {
+    if (!/\s/.test(ch)) n += 1;
+  }
+  return n;
 }
