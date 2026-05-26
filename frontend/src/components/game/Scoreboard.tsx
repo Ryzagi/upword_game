@@ -54,6 +54,15 @@ export function Scoreboard({
           const teamHasDescriber = members.some(
             (m) => m.id === currentDescriberId
           );
+          // In solo mode each player is a 1-person team named after them.
+          // Suppress the member list in that case — the row header already
+          // says the player's name and showing it again is just visual noise.
+          const isSoloRow =
+            members.length === 1 && members[0].nickname === team.name;
+          // Show the describer marker even when we collapse the member list.
+          const describerMember = teamHasDescriber
+            ? members.find((m) => m.id === currentDescriberId)
+            : null;
           return (
             <li
               key={team.id}
@@ -66,32 +75,42 @@ export function Scoreboard({
               style={{ background: team.color, color: contrastInk(team.color) }}
             >
               <div className="flex items-baseline justify-between gap-2">
-                <span className="headline text-lg truncate">{team.name}</span>
+                <span className="headline text-lg truncate">
+                  {team.name}
+                  {isSoloRow && describerMember && (
+                    <span className="ml-2 text-[0.65rem] uppercase tracking-wide font-bold">
+                      ☞ {t("play.describing")}
+                    </span>
+                  )}
+                </span>
                 <span className="numeral text-2xl">{team.score}</span>
               </div>
-              <ul className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs opacity-90">
-                {members.map((m, i) => (
-                  <li key={m.id} className="flex items-baseline gap-1.5">
-                    {i > 0 && <span className="opacity-60">·</span>}
-                    <span
-                      className={
-                        m.id === yourPlayerId ? "font-semibold underline" : ""
-                      }
-                    >
-                      {m.nickname}
-                    </span>
-                    {m.id === currentDescriberId && (
-                      <span className="text-[0.65rem] uppercase tracking-wide font-bold">
-                        ☞ {t("play.describing")}
+              {!isSoloRow && (
+                <ul className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs opacity-90">
+                  {members.map((m, i) => (
+                    <li key={m.id} className="flex items-baseline gap-1.5">
+                      {i > 0 && <span className="opacity-60">·</span>}
+                      <span
+                        className={
+                          m.id === yourPlayerId ? "font-semibold underline" : ""
+                        }
+                      >
+                        {m.nickname}
                       </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                      {m.id === currentDescriberId && (
+                        <span className="text-[0.65rem] uppercase tracking-wide font-bold">
+                          ☞ {t("play.describing")}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {/* Reactions attach to the team that contains the describer. */}
               {inRound && teamHasDescriber && reactions && (
                 <DescriberReactions
                   reactions={reactions}
+                  players={players}
                   yourPlayerId={yourPlayerId}
                   isSelfDescribing={
                     yourPlayerId !== null && yourPlayerId === currentDescriberId
@@ -110,12 +129,14 @@ export function Scoreboard({
 
 function DescriberReactions({
   reactions,
+  players,
   yourPlayerId,
   isSelfDescribing,
   contrastColor,
   send,
 }: {
   reactions: ReactionState;
+  players: PlayerPublic[];
   yourPlayerId: PlayerId | null;
   isSelfDescribing: boolean;
   contrastColor: string;
@@ -125,6 +146,11 @@ function DescriberReactions({
   const youLiked = yourPlayerId !== null && reactions.likes.includes(yourPlayerId);
   const youDisliked =
     yourPlayerId !== null && reactions.dislikes.includes(yourPlayerId);
+
+  // Resolve player_ids → nicknames once for the tooltips on each pill.
+  const nameById = new Map(players.map((p) => [p.id, p.nickname]));
+  const namesFor = (ids: PlayerId[]): string[] =>
+    ids.map((id) => nameById.get(id) ?? "?");
 
   // The pill border + text use the contrast color picked for the team bg
   // (black on light teams, white on dark teams) so they read in both cases.
@@ -136,12 +162,12 @@ function DescriberReactions({
         <>
           <ReactionPill
             kind="like"
-            n={reactions.likes.length}
+            names={namesFor(reactions.likes)}
             isDarkContrast={isDarkContrast}
           />
           <ReactionPill
             kind="dislike"
-            n={reactions.dislikes.length}
+            names={namesFor(reactions.dislikes)}
             isDarkContrast={isDarkContrast}
           />
         </>
@@ -149,7 +175,7 @@ function DescriberReactions({
         <>
           <ReactionPill
             kind="like"
-            n={reactions.likes.length}
+            names={namesFor(reactions.likes)}
             active={youLiked}
             isDarkContrast={isDarkContrast}
             onClick={() =>
@@ -159,7 +185,7 @@ function DescriberReactions({
           />
           <ReactionPill
             kind="dislike"
-            n={reactions.dislikes.length}
+            names={namesFor(reactions.dislikes)}
             active={youDisliked}
             isDarkContrast={isDarkContrast}
             onClick={() =>
@@ -175,18 +201,19 @@ function DescriberReactions({
 
 function ReactionPill({
   kind,
-  n,
+  names,
   active = false,
   isDarkContrast,
   onClick,
   ...rest
 }: {
   kind: "like" | "dislike";
-  n: number;
+  names: string[];
   active?: boolean;
   isDarkContrast: boolean;
   onClick?: () => void;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const { t } = useTranslation();
   const emoji = kind === "like" ? "👍" : "👎";
   const baseBorder = isDarkContrast ? "border-black/30" : "border-white/40";
   const baseBg = isDarkContrast ? "bg-black/5" : "bg-white/10";
@@ -198,18 +225,34 @@ function ReactionPill({
     " " +
     baseBg +
     (active ? " " + activeBg : "");
+  // Tooltip text: comma-joined nicknames so a hover shows who reacted.
+  // Falls back to the empty-state label when the list is empty so hover
+  // gives feedback either way.
+  const tooltip =
+    names.length === 0
+      ? t(kind === "like" ? "play.reaction_like_aria" : "play.reaction_dislike_aria")
+      : `${emoji} ${names.join(", ")}`;
+  const label = (
+    <>
+      <span aria-hidden>{emoji}</span>
+      <span className="numeral">{names.length}</span>
+      {names.length > 0 && (
+        <span className="hidden sm:inline text-[0.65rem] font-mono opacity-90 ml-0.5 truncate max-w-[10rem]">
+          {names.join(", ")}
+        </span>
+      )}
+    </>
+  );
   if (!onClick) {
     return (
-      <span className={cls} aria-hidden>
-        <span>{emoji}</span>
-        <span className="numeral">{n}</span>
+      <span className={cls} title={tooltip}>
+        {label}
       </span>
     );
   }
   return (
-    <button type="button" onClick={onClick} className={cls} {...rest}>
-      <span aria-hidden>{emoji}</span>
-      <span className="numeral">{n}</span>
+    <button type="button" onClick={onClick} className={cls} title={tooltip} {...rest}>
+      {label}
     </button>
   );
 }
