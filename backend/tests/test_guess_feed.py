@@ -100,7 +100,9 @@ def test_correct_guess_also_broadcasts_chat_event() -> None:
 
                 feed = _drain_until(guesser_ws, {"guess/feed"})
                 assert feed["data"]["correct"] is True
-                assert feed["data"]["text"] == word
+                # The secret word must NOT be echoed back in the chat —
+                # other players are still trying to guess.
+                assert feed["data"]["text"] == ""
 
 
 def test_empty_guess_does_not_broadcast() -> None:

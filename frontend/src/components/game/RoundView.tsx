@@ -115,6 +115,8 @@ export function RoundView(props: Props) {
         <DescriberPanel
           describerWord={describerWord}
           liveText={liveText}
+          roomLanguage={roomLanguage}
+          uiLanguage={uiLanguage}
           send={send}
         />
       ) : (
@@ -235,14 +237,19 @@ function CountdownChip({ seconds }: { seconds: number }) {
 function DescriberPanel({
   describerWord,
   liveText,
+  roomLanguage,
+  uiLanguage,
   send,
 }: {
   describerWord: DescriberWord | null;
   liveText: string;
+  roomLanguage: string;
+  uiLanguage: string;
   send: (event: ClientEvent) => boolean;
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(liveText);
+  const [hintRevealed, setHintRevealed] = useState(false);
   const localRef = useRef(true); // we own the truth while typing
 
   // If the server's live_text gets out of sync (e.g. after reconnect), seed
@@ -254,6 +261,11 @@ function DescriberPanel({
       localRef.current = false;
     }
   }, [liveText]);
+
+  // Reset the hint reveal when the word changes (new round).
+  useEffect(() => {
+    setHintRevealed(false);
+  }, [describerWord?.word_id]);
 
   const throttledSend = useThrottledCallback((text: string) => {
     send({ type: "describer/text", data: { text } });
@@ -273,10 +285,29 @@ function DescriberPanel({
           {describerWord?.word_text ?? "…"}
         </h3>
         {describerWord && (
-          <p className="mt-4 text-base md:text-lg leading-relaxed">
-            <span className="eyebrow mr-2 align-middle">{t("play.hint")}</span>
-            {describerWord.hint}
-          </p>
+          <div className="mt-4">
+            {hintRevealed ? (
+              <p className="text-base md:text-lg leading-relaxed">
+                <span className="eyebrow mr-2 align-middle">{t("play.hint")}</span>
+                {describerWord.hint}
+                <button
+                  type="button"
+                  onClick={() => setHintRevealed(false)}
+                  className="ml-3 text-xs underline opacity-70 hover:opacity-100"
+                >
+                  {t("play.hint_hide")}
+                </button>
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setHintRevealed(true)}
+                className="btn btn-sm btn-ghost"
+              >
+                💡 {t("play.hint_reveal")}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -298,6 +329,8 @@ function DescriberPanel({
           {t("play.describer_instructions")}
         </p>
       </div>
+
+      <TranslateBar defaultSrc={roomLanguage} defaultDst={uiLanguage} />
     </div>
   );
 }

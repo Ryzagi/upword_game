@@ -340,7 +340,10 @@ async def _handle_guess_submit(room: Room, player_id: str, data: dict[str, Any])
         return
     # Broadcast the guess as a chat-style message visible to everyone.
     # Capped to avoid pathological lengths in the chat feed.
-    chat_text = text.strip()[:120]
+    # For a correct guess we redact the body — clients only need to know
+    # someone got it, not what the secret word was (would spoil it for
+    # players who haven't guessed yet).
+    chat_text = "" if result.correct else text.strip()[:120]
     await room.broadcast(
         {
             "type": "guess/feed",

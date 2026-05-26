@@ -626,8 +626,10 @@ class Room:
                     )
                     team_position = position
 
-                # All non-describer teams now scored? Round ends naturally.
-                if self._all_non_describer_teams_scored_locked():
+                # Round only ends naturally once every non-describer
+                # *player* has guessed the word — not just one per team.
+                # This keeps everyone engaged until the last person gets it.
+                if self._all_non_describer_players_guessed_locked():
                     round_ended = self._finalize_round_locked(conceded=False, forced=False)
 
             free_left: int | None = None
@@ -665,6 +667,22 @@ class Room:
             return False
         scored = {e.team_id for e in self.current_round.correct_teams_order}
         return all(tid in scored for tid in non_describer_team_ids)
+
+    def _all_non_describer_players_guessed_locked(self) -> bool:
+        """True once every non-describer player has guessed correctly.
+
+        This is the stronger end-condition the game uses: a round won't
+        end until the *last* player has gotten it, so nobody is left
+        twiddling their thumbs after their team-mate scores.
+        """
+        if self.current_round is None:
+            return False
+        describer_id = self.current_round.describer_id
+        non_describer_ids = [pid for pid in self.players if pid != describer_id]
+        if not non_describer_ids:
+            return False
+        correct = self.current_round.correct_player_ids
+        return all(pid in correct for pid in non_describer_ids)
 
     # ----------------------------------------------- finalising a round
 

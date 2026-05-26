@@ -73,8 +73,15 @@ export function ChatFeed({ messages, players, teams, yourPlayerId }: Props) {
                 >
                   {player?.nickname ?? "—"}
                 </span>
-                <span className="text-ink break-words flex-1 min-w-0">
-                  {m.text}
+                <span
+                  className={
+                    "break-words flex-1 min-w-0 " +
+                    (m.correct
+                      ? "text-emerald-700 italic"
+                      : "text-ink")
+                  }
+                >
+                  {m.correct ? t("play.chat_guessed_correctly") : m.text}
                 </span>
                 {m.correct && (
                   <span

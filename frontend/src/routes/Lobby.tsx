@@ -83,7 +83,13 @@ function JoinForm({
 
   return (
     <main className="min-h-screen px-5 py-10 flex items-center justify-center">
-      <div className="w-full max-w-md bento bento-mint bento-lg pop-in p-7 md:p-9">
+      <form
+        className="w-full max-w-md bento bento-mint bento-lg pop-in p-7 md:p-9"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!busy && nickname.trim()) handleJoin();
+        }}
+      >
         <p className="eyebrow">{t("lobby.knock_label")}</p>
         <h1 className="headline-tight text-5xl mt-2 flex items-baseline gap-6 md:gap-8 flex-wrap">
           <span>{t("lobby.parlour")}</span>
@@ -103,8 +109,7 @@ function JoinForm({
         />
         <div className="flex gap-3 mt-5">
           <button
-            type="button"
-            onClick={handleJoin}
+            type="submit"
             disabled={busy || !nickname.trim()}
             className="btn btn-coral flex-1 justify-between"
           >
@@ -120,7 +125,7 @@ function JoinForm({
             {t(`errors.${errorCode}`, t("errors.unknown_error"))}
           </p>
         )}
-      </div>
+      </form>
     </main>
   );
 }
@@ -383,7 +388,7 @@ function ConnectedRoom({
           />
         )}
 
-        {lastError && (
+        {lastError && !isLobbyOnlyErrorIrrelevantNow(lastError.code, state) && (
           <p className="alert pop-in" role="alert">
             {t(`errors.${lastError.code}`, t("errors.unknown_error"))}
             <button
@@ -446,6 +451,25 @@ function computeStartDisabledReason(
     }
   }
   return null;
+}
+
+// Error codes that only make sense while the room is still in the lobby —
+// suppress them if a stale one is lingering after the game has started, so
+// rejoining players don't see "Teams aren't set up right" while the
+// scoreboard is already on screen.
+const LOBBY_ONLY_ERROR_CODES = new Set([
+  "bad_team_config",
+  "bad_theme_picks",
+  "not_enough_players",
+  "team_limit_exceeded",
+  "team_not_found",
+  "team_name_taken",
+  "team_name_invalid",
+  "room_not_in_lobby",
+]);
+
+function isLobbyOnlyErrorIrrelevantNow(code: string, state: string): boolean {
+  return state !== "lobby" && LOBBY_ONLY_ERROR_CODES.has(code);
 }
 
 function Centred({ children }: { children: React.ReactNode }) {

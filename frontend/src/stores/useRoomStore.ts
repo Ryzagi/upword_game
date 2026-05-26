@@ -224,6 +224,10 @@ export const useRoomStore = create<RoomStoreState>((set) => ({
             describerWord: null,
             lastRoundResults: null,
             finalScores: null,
+            // Once the game starts, any leftover lobby-only error
+            // (bad_team_config, not_enough_players, bad_theme_picks…) is
+            // stale and would just confuse players. Drop it.
+            lastError: null,
             ...clearRoundEphemerals(),
           };
         case "round/started":
@@ -232,6 +236,7 @@ export const useRoomStore = create<RoomStoreState>((set) => ({
             currentRound: event.data,
             currentDescriberId: event.data.describer_id,
             lastRoundResults: null,
+            lastError: null,
             ...clearRoundEphemerals(),
             // Reset your attempt budget from settings (attempts mode only).
             yourFreeAttemptsLeft:

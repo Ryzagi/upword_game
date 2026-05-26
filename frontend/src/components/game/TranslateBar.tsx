@@ -71,11 +71,15 @@ export function TranslateBar({ defaultSrc = "ru", defaultDst = "en", onPasteToGu
         <div className="flex items-center gap-2 text-sm">
           <select
             value={src}
-            onChange={(e) => setSrc(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (next === dst) setDst(src);
+              setSrc(next);
+            }}
             className="border-2 border-ink rounded px-2 py-1 bg-card"
             aria-label={t("play.translate_src_label")}
           >
-            {LANGS.map(([code, name]) => (
+            {LANGS.filter(([code]) => code !== dst).map(([code, name]) => (
               <option key={code} value={code}>
                 {name}
               </option>
@@ -92,11 +96,15 @@ export function TranslateBar({ defaultSrc = "ru", defaultDst = "en", onPasteToGu
           </button>
           <select
             value={dst}
-            onChange={(e) => setDst(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (next === src) setSrc(dst);
+              setDst(next);
+            }}
             className="border-2 border-ink rounded px-2 py-1 bg-card"
             aria-label={t("play.translate_dst_label")}
           >
-            {LANGS.map(([code, name]) => (
+            {LANGS.filter(([code]) => code !== src).map(([code, name]) => (
               <option key={code} value={code}>
                 {name}
               </option>
