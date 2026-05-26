@@ -177,9 +177,9 @@ class ThemeGenerator:
         language_label = _language_label(language)
         system_msg = (
             "You generate themed vocabulary packs for a multiplayer word-"
-            "describing party game played by casual friend groups (not "
-            "experts). Return exactly five distinct, COMMON everyday words "
-            "on the requested theme — one per difficulty level 1..5.\n"
+            "describing party game played by ADULT friend groups. Return "
+            "exactly five distinct, COMMON everyday words on the requested "
+            "theme — one per difficulty level 1..5.\n"
             "\n"
             "All words must be familiar to a typical adult. Difficulty "
             "captures how HARD THE WORD IS TO DESCRIBE without saying it, "
@@ -195,10 +195,18 @@ class ThemeGenerator:
             "DO NOT pick obscure scientific, medical, legal, or technical "
             "terms. If your candidate would make an average player say "
             "\"I've never heard of that,\" choose something simpler.\n"
+            "\n"
+            "CONTENT POLICY: this is an adult game. If the player's prompt "
+            "calls for mature themes — alcohol, swearing, sex, drugs, "
+            "dark humour, etc. — generate them honestly without softening "
+            "them into euphemisms. Treat the requested topic as the "
+            "ground truth. The only hard limits are: no slurs targeting "
+            "protected groups, no sexual content involving minors, no "
+            "real-world instructions for violence or self-harm.\n"
             f"\nWords and hints MUST be written in {language_label}. Each "
             "hint must clue the word WITHOUT containing the word itself or "
             "an obvious lemma/stem of it. Avoid proper nouns unless the "
-            "theme explicitly calls for them. Family-friendly only."
+            "theme explicitly calls for them."
         )
         user_msg = f"Theme: {clean_prompt}\nLanguage: {language_label}"
 
