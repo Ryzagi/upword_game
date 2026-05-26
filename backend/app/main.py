@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.translator_disabled:
         translator = NoopTranslator()
     elif settings.openai_api_key:
-        from app.translation.openai import OpenAITranslator
+        from app.translation.openai_translator import OpenAITranslator
 
         translator = OpenAITranslator(
             api_key=settings.openai_api_key,
