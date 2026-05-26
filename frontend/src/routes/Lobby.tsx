@@ -93,7 +93,7 @@ function JoinForm({
         <p className="eyebrow">{t("lobby.knock_label")}</p>
         <h1 className="headline-tight text-5xl mt-2 flex items-baseline gap-6 md:gap-8 flex-wrap">
           <span>{t("lobby.parlour")}</span>
-          <span className="font-mono tracking-[0.4em] text-4xl">{code}</span>
+          <span className="font-mono tracking-[0.12em] text-4xl">{code}</span>
         </h1>
         <label htmlFor="nick" className="eyebrow block mt-6 mb-2">
           {t("menu.nickname_label")}
@@ -264,7 +264,7 @@ function ConnectedRoom({
               <h1 className="headline-tight text-5xl md:text-6xl mt-2 flex items-baseline gap-6 md:gap-10 flex-wrap">
                 <span>{t("lobby.parlour")}</span>
                 <span className="inline-flex items-center gap-2.5">
-                  <span className="font-mono tracking-[0.4em] text-4xl md:text-5xl text-rouge">
+                  <span className="font-mono tracking-[0.12em] text-4xl md:text-5xl text-rouge">
                     {code}
                   </span>
                   <button

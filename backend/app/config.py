@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # "low" | "medium" | "high" — passed through as `reasoning_effort` on
     # models that support it; ignored on models that don't.
     openai_reasoning_effort: str = "medium"
+    # Translator model — small/fast model is best for short translations.
+    openai_translation_model: str = "gpt-5.4-nano-2026-03-17"
 
 
 @lru_cache

@@ -166,20 +166,20 @@ export default function Index() {
         )}
 
         {/* ─── Footer chips ─────────────────────────────────────── */}
-        <footer className="pop-in flex flex-wrap items-center justify-center gap-3 pt-4" data-order="5">
+        <footer className="pop-in flex flex-wrap items-center justify-center gap-4 pt-6" data-order="5">
           <button
             type="button"
             onClick={() => setRulesOpen(true)}
-            className="chip chip-yellow wiggle-on-hover"
+            className="chip chip-yellow wiggle-on-hover !text-base !py-2.5 !px-5 gap-2"
           >
-            ✎ {t("menu.rules")}
+            <span aria-hidden className="text-lg">✎</span> {t("menu.rules")}
           </button>
           <button
             type="button"
             onClick={() => setSettingsOpen(true)}
-            className="chip chip-pink wiggle-on-hover"
+            className="chip chip-pink wiggle-on-hover !text-base !py-2.5 !px-5 gap-2"
           >
-            ⚙ {t("menu.settings")}
+            <span aria-hidden className="text-lg">⚙</span> {t("menu.settings")}
           </button>
         </footer>
       </div>

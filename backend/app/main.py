@@ -26,12 +26,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.corpora = load_all_corpora(settings.corpus_dir)
     app.state.room_manager = RoomManager(corpora=app.state.corpora)
 
-    # Translation: real MyMemory client + cache by default. Tests inject
-    # their own translator via app.state.translator before the request runs.
+    # Translation backend.
+    #   * Tests / explicit disable → NoopTranslator (echoes input)
+    #   * OPENAI_API_KEY set → OpenAITranslator (preferred — better quality
+    #     and no daily quota)
+    #   * Otherwise → MyMemoryTranslator (free, daily-quota-limited)
     http_client = httpx.AsyncClient(timeout=6.0)
     translator: Translator
     if settings.translator_disabled:
         translator = NoopTranslator()
+    elif settings.openai_api_key:
+        from app.translation.openai import OpenAITranslator
+
+        translator = OpenAITranslator(
+            api_key=settings.openai_api_key,
+            model=settings.openai_translation_model,
+        )
     else:
         translator = MyMemoryTranslator(
             client=http_client, email=settings.translation_email or None

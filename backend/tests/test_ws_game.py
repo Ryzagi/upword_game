@@ -318,9 +318,12 @@ def test_play_again_after_board_exhausted() -> None:
                         else:
                             current_describer = nxt["data"]["current_describer_id"]
 
-                # The game has ended.
+                # The game has ended. play_again now sends the room back
+                # to the lobby (state="lobby"); no game/started is emitted.
                 host_ws.send_json({"type": "game/play_again", "data": {}})
-                restarted = _drain_until(host_ws, {"game/started"})
-                assert restarted["data"]["board"]["used"] == []
-                for entry in restarted["data"]["scoreboard"]:
-                    assert entry["score"] == 0
+                lobby_state = _drain_until(host_ws, {"lobby/state"})
+                assert lobby_state["data"]["state"] == "lobby"
+                # Every player's pick list was cleared so they can
+                # re-pick themes for the next game.
+                for player in lobby_state["data"]["players"]:
+                    assert player.get("theme_picks") == []

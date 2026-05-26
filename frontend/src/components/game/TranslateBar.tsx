@@ -22,7 +22,15 @@ export function TranslateBar({ defaultSrc = "ru", defaultDst = "en", onPasteToGu
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [src, setSrc] = useState(defaultSrc);
-  const [dst, setDst] = useState(defaultDst);
+  // If the caller passed the same language for both sides (common when
+  // roomLanguage === uiLanguage), nudge dst to the first different language
+  // in LANGS — otherwise both selects would filter their twin out and
+  // display whichever option happens to be first, hiding the real default.
+  const [dst, setDst] = useState(() =>
+    defaultDst === defaultSrc
+      ? (LANGS.find(([code]) => code !== defaultSrc)?.[0] ?? defaultDst)
+      : defaultDst
+  );
   const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -71,15 +79,11 @@ export function TranslateBar({ defaultSrc = "ru", defaultDst = "en", onPasteToGu
         <div className="flex items-center gap-2 text-sm">
           <select
             value={src}
-            onChange={(e) => {
-              const next = e.target.value;
-              if (next === dst) setDst(src);
-              setSrc(next);
-            }}
+            onChange={(e) => setSrc(e.target.value)}
             className="border-2 border-ink rounded px-2 py-1 bg-card"
             aria-label={t("play.translate_src_label")}
           >
-            {LANGS.filter(([code]) => code !== dst).map(([code, name]) => (
+            {LANGS.map(([code, name]) => (
               <option key={code} value={code}>
                 {name}
               </option>
@@ -96,15 +100,11 @@ export function TranslateBar({ defaultSrc = "ru", defaultDst = "en", onPasteToGu
           </button>
           <select
             value={dst}
-            onChange={(e) => {
-              const next = e.target.value;
-              if (next === src) setSrc(dst);
-              setDst(next);
-            }}
+            onChange={(e) => setDst(e.target.value)}
             className="border-2 border-ink rounded px-2 py-1 bg-card"
             aria-label={t("play.translate_dst_label")}
           >
-            {LANGS.filter(([code]) => code !== src).map(([code, name]) => (
+            {LANGS.map(([code, name]) => (
               <option key={code} value={code}>
                 {name}
               </option>

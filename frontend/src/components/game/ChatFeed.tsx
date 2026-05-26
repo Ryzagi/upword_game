@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function ChatFeed({ messages, players, teams, yourPlayerId }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const listRef = useRef<HTMLOListElement | null>(null);
 
   // Keep the most recent guess in view as new messages stream in.
@@ -20,11 +20,6 @@ export function ChatFeed({ messages, players, teams, yourPlayerId }: Props) {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
-
-  const timeFormatter = new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
   return (
     <section className="bento p-4 md:p-5">
@@ -62,14 +57,6 @@ export function ChatFeed({ messages, players, teams, yourPlayerId }: Props) {
             const compact =
               !!prev && prev.player_id === m.player_id && !m.correct && !prev.correct;
 
-            const timeLabel = (() => {
-              try {
-                return timeFormatter.format(new Date(m.at));
-              } catch {
-                return "";
-              }
-            })();
-
             return (
               <li
                 key={m.id}
@@ -105,8 +92,8 @@ export function ChatFeed({ messages, players, teams, yourPlayerId }: Props) {
                   {!compact && (
                     <div
                       className={
-                        "flex items-baseline gap-2 mb-0.5 px-0.5 text-xs " +
-                        (isYou ? "flex-row-reverse" : "")
+                        "mb-0.5 px-0.5 text-xs " +
+                        (isYou ? "text-right" : "text-left")
                       }
                     >
                       <span
@@ -118,11 +105,6 @@ export function ChatFeed({ messages, players, teams, yourPlayerId }: Props) {
                       >
                         {nickname}
                       </span>
-                      {timeLabel && (
-                        <span className="opacity-50 numeral text-[0.65rem]">
-                          {timeLabel}
-                        </span>
-                      )}
                     </div>
                   )}
 

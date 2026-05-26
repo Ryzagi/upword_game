@@ -301,12 +301,18 @@ async def test_game_ends_when_board_full(sample_corpus_en: Corpus) -> None:
 # --------------------------------------------------------------- play_again
 
 
-async def test_play_again_resets_board_and_scores(sample_corpus_en: Corpus) -> None:
+async def test_play_again_resets_to_lobby_and_clears_picks(
+    sample_corpus_en: Corpus,
+) -> None:
+    """After play_again the room returns to the lobby so players can
+    re-pick themes for the next game."""
     room = Room("AAA111", corpus=sample_corpus_en)
-    await room.add_player("Alex")
-    await room.add_player("Mira")
+    p_alex, _ = await room.add_player("Alex")
+    p_mira, _ = await room.add_player("Mira")
     await room.start_game()
-    # Play through full board
+    # Confirm picks were auto-seeded by the test fixture.
+    assert room.players[p_alex.id].theme_picks
+    # Play through full board.
     assert room.board is not None
     total = room.board.total_cells
     for _ in range(total):
@@ -321,14 +327,18 @@ async def test_play_again_resets_board_and_scores(sample_corpus_en: Corpus) -> N
         await room.pick_cell(describer, cell[0], cell[1])
         await room.concede(describer)
     assert room.state == "ended"
-    # mess with a team score to verify it resets
+    # Mess with a team score to verify it resets.
     next(iter(room.teams.values())).score = 999
 
     await room.play_again()
 
-    assert room.state == "board"
-    assert len(room.board.used) == 0
+    assert room.state == "lobby"
+    assert room.board is None
     assert all(t.score == 0 for t in room.teams.values())
+    # Every player has an empty theme pick list now, so they have to
+    # re-pick before the next start_game.
+    assert all(p.theme_picks == [] for p in room.players.values())
+    _ = p_mira  # silence unused warning
 
 
 # --------------------------------------------------------- snapshot privacy

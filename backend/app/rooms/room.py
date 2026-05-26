@@ -551,16 +551,25 @@ class Room:
             return self._finalize_round_locked(conceded=False, forced=True)
 
     async def play_again(self) -> None:
+        """Send the room back to the lobby so players can re-pick themes
+        before the next game. Scores reset, picks reset, but team
+        composition and any AI-generated themes from the previous game
+        carry over so players don't have to re-do setup.
+        """
         async with self.lock:
             if self.state != "ended":
                 raise RoomNotInLobbyError()
-            assert self.board is not None
-            self.board.reset()
             for team in self.teams.values():
                 team.score = 0
+            for player in self.players.values():
+                player.theme_picks = []
+            self.board = None
             self.current_round = None
+            self.rotation = []
+            self.rotation_index = 0
             self._used_word_ids = set()
-            self.state = "board"
+            self._round_counter = 0
+            self.state = "lobby"
 
     # ---------------------------------------------------------- guess + text
 

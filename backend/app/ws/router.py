@@ -299,9 +299,24 @@ async def _handle_theme_generate(
     async with room.lock:
         if len(room.extra_themes) >= 5:
             raise ThemeGenCapReachedError()
+        # ID collision can happen when two players generate concurrently
+        # and OpenAI produces similar names — both snapshots saw the same
+        # existing_ids set, so both synthesised the same `ai-<slug>` id.
+        # Resolve in-flight by appending a short random suffix; don't fail
+        # the second player just because they were a few ms behind.
         if theme.id in room._all_theme_ids_locked():  # noqa: SLF001
-            # Rare collision after our pre-check — bail rather than overwrite.
-            raise ThemeGenFailedError()
+            import secrets
+
+            existing = room._all_theme_ids_locked()  # noqa: SLF001
+            base = theme.id
+            for _ in range(8):
+                candidate = f"{base}-{secrets.token_hex(2)}"
+                if candidate not in existing:
+                    theme = theme.model_copy(update={"id": candidate})
+                    break
+            else:
+                # Wildly unlucky — give up.
+                raise ThemeGenFailedError()
         room.add_generated_theme(theme, player_id)
         snapshot_corpus = [
             {
@@ -390,19 +405,11 @@ async def _handle_force_end(room: Room) -> None:
 
 
 async def _handle_play_again(room: Room) -> None:
+    """Reset the game back to the lobby (post-ended). Clients see a
+    `lobby/state` with state=lobby; the EndedView unmounts and the lobby
+    picker is shown again."""
     await room.play_again()
     await room.broadcast({"type": "lobby/state", "data": _lobby_state(room)})
-    await room.broadcast(
-        {
-            "type": "game/started",
-            "data": {
-                "board": room.board.public() if room.board else None,
-                "scoreboard": room.scoreboard(),
-                "describer_queue": list(room.rotation),
-                "current_describer_id": room.current_describer_id,
-            },
-        }
-    )
 
 
 # ----------------------------------------------------- live-round handlers

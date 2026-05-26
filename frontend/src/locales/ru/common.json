@@ -1,7 +1,7 @@
 {
   "menu": {
     "title": "UpWord",
-    "subtitle": "вечеринская игра в опиши-слово",
+    "subtitle": "игра слов для вечеринок",
     "eyebrow": "словесная игра в реальном времени",
     "tagline_lead": "Один пишет.",
     "tagline_tail": "Остальные наперегонки угадывают. Соло или командой.",
@@ -133,7 +133,7 @@
     "cells_used": "{{used}} из {{total}}",
     "cell_label": "{{theme}} за {{score}} очков",
     "round_header_kicker": "идёт раунд",
-    "describer_label": "Описывающий",
+    "describer_label": "Загадывает",
     "concede": "Сдаться",
     "force_end": "Завершить",
     "your_word": "Ваше слово",
@@ -206,9 +206,9 @@
     "winner_announcement": "{{team}} впереди по очкам.",
     "final_scores": "Итоговый счёт",
     "play_again_kicker": "ещё разок?",
-    "play_again_heading": "Те же команды, новое поле",
-    "play_again": "Сыграть ещё",
-    "waiting_for_host": "Ждём, пока хост начнёт новую игру…"
+    "play_again_heading": "Вернуться в лобби",
+    "play_again": "В лобби",
+    "waiting_for_host": "Ждём, пока хост вернёт всех в лобби…"
   },
   "settings": {
     "title": "Настройки",

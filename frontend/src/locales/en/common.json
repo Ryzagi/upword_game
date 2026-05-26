@@ -203,9 +203,9 @@
     "winner_announcement": "{{team}} leads the board.",
     "final_scores": "Final scores",
     "play_again_kicker": "another round?",
-    "play_again_heading": "Same teams, fresh board",
-    "play_again": "Play again",
-    "waiting_for_host": "Waiting for the host to start a new game…"
+    "play_again_heading": "Back to the lobby",
+    "play_again": "Back to lobby",
+    "waiting_for_host": "Waiting for the host to take everyone back to the lobby…"
   },
   "settings": {
     "title": "Settings",
