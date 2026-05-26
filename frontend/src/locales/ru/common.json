@@ -80,7 +80,7 @@
       "gen_action": "Сгенерировать",
       "gen_in_flight": "Генерирую…",
       "gen_cooldown": "Подождите {{seconds}}с",
-      "gen_cap_reached": "Лимит сгенерированных тем ({{count}}/5)"
+      "gen_cap_reached": "Лимит сгенерированных тем ({{count}}/{{max}})"
     },
     "nickname_edit_aria": "Изменить имя",
     "code_copy_aria": "Скопировать код комнаты",

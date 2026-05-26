@@ -63,7 +63,7 @@ def _max_picks_per_player(player_count: int) -> int:
 LETTER_REVEAL_INTERVAL_SECONDS = 40.0
 
 # AI theme generator caps.
-MAX_GENERATED_THEMES_PER_ROOM = 5
+MAX_GENERATED_THEMES_PER_ROOM = 10
 THEME_GEN_COOLDOWN_SECONDS = 30.0
 
 RoomState = Literal["lobby", "board", "round", "ended"]

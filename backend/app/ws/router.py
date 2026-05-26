@@ -297,7 +297,9 @@ async def _handle_theme_generate(
     # Re-acquire the lock and re-check the cap (someone else may have
     # generated theirs while ours was in flight).
     async with room.lock:
-        if len(room.extra_themes) >= 5:
+        from app.rooms.room import MAX_GENERATED_THEMES_PER_ROOM
+
+        if len(room.extra_themes) >= MAX_GENERATED_THEMES_PER_ROOM:
             raise ThemeGenCapReachedError()
         # ID collision can happen when two players generate concurrently
         # and OpenAI produces similar names — both snapshots saw the same

@@ -79,7 +79,7 @@
       "gen_action": "Generate",
       "gen_in_flight": "Generating…",
       "gen_cooldown": "Wait {{seconds}}s",
-      "gen_cap_reached": "Generated cap reached ({{count}}/5)"
+      "gen_cap_reached": "Generated cap reached ({{count}}/{{max}})"
     },
     "nickname_edit_aria": "Edit your nickname",
     "code_copy_aria": "Copy room code",

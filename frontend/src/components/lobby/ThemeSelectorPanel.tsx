@@ -6,7 +6,8 @@ import { useRoomStore } from "../../stores/useRoomStore";
 import type { ClientEvent } from "../../ws/events";
 
 const COOLDOWN_SECONDS = 30;
-const ROOM_CAP = 5;
+// Must match MAX_GENERATED_THEMES_PER_ROOM in backend/app/rooms/room.py.
+const ROOM_CAP = 10;
 
 interface Props {
   yourPlayer: PlayerPublic | null;
@@ -254,7 +255,10 @@ function GeneratorForm({
   }
 
   const buttonLabel = capReached
-    ? t("lobby.themes.gen_cap_reached", { count: generatedCount })
+    ? t("lobby.themes.gen_cap_reached", {
+        count: generatedCount,
+        max: ROOM_CAP,
+      })
     : inFlight
       ? t("lobby.themes.gen_in_flight")
       : onCooldown

@@ -192,6 +192,46 @@ async def test_letter_pattern_reveals_index(sample_corpus_en: Corpus) -> None:
         assert pattern[j] == "_"
 
 
+async def test_ai_generated_theme_cell_picks_correctly(
+    sample_corpus_en: Corpus,
+) -> None:
+    """Regression: an AI-generated theme (stored in extra_themes, not the
+    shared corpus) must serve a word when its cell is picked on the board.
+    """
+    from app.corpus.schema import Theme, Word
+
+    room = Room("AAA111", corpus=sample_corpus_en)
+    p_alex, _ = await room.add_player("Alex")
+    p_mira, _ = await room.add_player("Mira")
+
+    fake_theme = Theme(
+        id="ai-space",
+        name="Space",
+        icon="rocket",
+        words=[
+            Word(id="moon",      text="moon",      difficulty=1, hint="Visible at night."),
+            Word(id="rocket",    text="rocket",    difficulty=2, hint="Propelled vehicle that escapes gravity."),
+            Word(id="asteroid",  text="asteroid",  difficulty=3, hint="Rocky drifting body between planets."),
+            Word(id="supernova", text="supernova", difficulty=4, hint="Cataclysmic stellar explosion."),
+            Word(id="exoplanet", text="exoplanet", difficulty=5, hint="World orbiting another sun."),
+        ],
+    )
+    async with room.lock:
+        room.add_generated_theme(fake_theme, p_alex.id)
+    await room.set_player_theme_picks(p_alex.id, ["ai-space"])
+    await room.set_player_theme_picks(p_mira.id, [sample_corpus_en.themes[0].id])
+    await room.start_game()
+
+    # The describer picks every difficulty of the AI theme — all five should
+    # serve a word without raising NoWordsAvailableError.
+    for difficulty in range(1, 6):
+        describer = room.current_describer_id
+        rnd = await room.pick_cell(describer, "ai-space", difficulty)
+        assert rnd.word_text  # non-empty
+        # End the round so the board comes back and rotation advances.
+        await room.concede(describer)
+
+
 async def test_round_public_includes_letter_fields(sample_corpus_en: Corpus) -> None:
     room = Room("AAA111", corpus=sample_corpus_en)
     await room.add_player("Alex")

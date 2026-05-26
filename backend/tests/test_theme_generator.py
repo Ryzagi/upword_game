@@ -72,3 +72,67 @@ def test_build_theme_rejects_empty_name() -> None:
     payload["name"] = ""
     with pytest.raises(ThemeGenerationError):
         gen._build_theme(payload, existing_ids=set())  # noqa: SLF001
+
+
+# ----------------------------------------------------------------- retry loop
+
+
+async def test_generate_retries_bad_response_then_succeeds(monkeypatch) -> None:
+    """If the model returns a payload that fails validation the first time,
+    `generate` retries — and a subsequent good response should succeed."""
+    gen = _make_gen()
+
+    call_count = 0
+    bad_payload = _good_payload()
+    bad_payload["words"] = bad_payload["words"][:3]  # only 3 words → bad_response
+    good_payload = _good_payload()
+
+    async def fake_once(*, prompt, language, existing_theme_ids):  # type: ignore[no-untyped-def]
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return gen._build_theme(bad_payload, existing_theme_ids)  # noqa: SLF001 — raises
+        return gen._build_theme(good_payload, existing_theme_ids)  # noqa: SLF001
+
+    monkeypatch.setattr(gen, "_generate_once", fake_once)
+    theme = await gen.generate(prompt="x", language="en", existing_theme_ids=set())
+    assert theme.name == "Space"
+    assert call_count == 2
+
+
+async def test_generate_gives_up_after_max_attempts(monkeypatch) -> None:
+    from app.ai.theme_generator import GENERATION_MAX_ATTEMPTS
+
+    gen = _make_gen()
+    bad_payload = _good_payload()
+    bad_payload["words"] = bad_payload["words"][:3]
+
+    call_count = 0
+
+    async def fake_once(*, prompt, language, existing_theme_ids):  # type: ignore[no-untyped-def]
+        nonlocal call_count
+        call_count += 1
+        return gen._build_theme(bad_payload, existing_theme_ids)  # noqa: SLF001
+
+    monkeypatch.setattr(gen, "_generate_once", fake_once)
+    with pytest.raises(ThemeGenerationError):
+        await gen.generate(prompt="x", language="en", existing_theme_ids=set())
+    assert call_count == GENERATION_MAX_ATTEMPTS
+
+
+async def test_generate_does_not_retry_invalid_prompt(monkeypatch) -> None:
+    """Errors that are deterministic w.r.t. inputs should fail fast — no
+    point burning quota on retries."""
+    gen = _make_gen()
+
+    call_count = 0
+
+    async def fake_once(*, prompt, language, existing_theme_ids):  # type: ignore[no-untyped-def]
+        nonlocal call_count
+        call_count += 1
+        raise ThemeGenerationError("invalid_prompt")
+
+    monkeypatch.setattr(gen, "_generate_once", fake_once)
+    with pytest.raises(ThemeGenerationError):
+        await gen.generate(prompt="x", language="en", existing_theme_ids=set())
+    assert call_count == 1

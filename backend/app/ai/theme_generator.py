@@ -30,6 +30,9 @@ log = logging.getLogger(__name__)
 # A theme generated in a 5-player room is short-lived and small — keep the
 # round-trip fast so the lobby doesn't feel stuck.
 GENERATION_TIMEOUT_SECONDS = 25.0
+# How many times to retry when the model returns a payload that fails our
+# post-validation (e.g. fewer than 5 words, missing a difficulty tier).
+GENERATION_MAX_ATTEMPTS = 3
 
 _THEME_SCHEMA: dict[str, Any] = {
     "name": "generated_theme",
@@ -127,7 +130,42 @@ class ThemeGenerator:
         * unique id-wise relative to ``existing_theme_ids``,
         * have exactly one word per difficulty 1..5,
         * have hints that don't echo the target word.
+
+        Retries up to ``GENERATION_MAX_ATTEMPTS`` times if the model returns
+        a payload that fails post-validation (wrong word count, missing
+        difficulty tier, or a hint that echoes the target). All other error
+        kinds (invalid prompt, upstream failure, timeout) surface immediately.
         """
+        last_error: ThemeGenerationError | None = None
+        for attempt in range(1, GENERATION_MAX_ATTEMPTS + 1):
+            try:
+                return await self._generate_once(
+                    prompt=prompt,
+                    language=language,
+                    existing_theme_ids=existing_theme_ids,
+                )
+            except ThemeGenerationError as e:
+                # Only retry on quality issues; everything else is fatal.
+                if str(e) != "bad_response":
+                    raise
+                last_error = e
+                log.info(
+                    "theme generation attempt %d/%d returned bad_response — retrying",
+                    attempt,
+                    GENERATION_MAX_ATTEMPTS,
+                )
+        assert last_error is not None
+        raise last_error
+
+    async def _generate_once(
+        self,
+        *,
+        prompt: str,
+        language: str,
+        existing_theme_ids: set[str],
+    ) -> Theme:
+        """A single OpenAI call + validation pass. The caller wraps this in
+        a retry loop for ``bad_response`` outcomes."""
         clean_prompt = prompt.strip()
         if not clean_prompt or len(clean_prompt) > 120:
             raise ThemeGenerationError("invalid_prompt")
