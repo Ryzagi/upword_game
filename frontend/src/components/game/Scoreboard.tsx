@@ -17,6 +17,12 @@ interface Props {
    *  next to the describer in the scoreboard. */
   reactions?: ReactionState;
   inRound?: boolean;
+  /** Players who have already guessed correctly this round. Get a green
+   *  ✓ next to their nickname. */
+  correctPlayerIds?: PlayerId[];
+  /** The describer id from the just-finished round if it was conceded —
+   *  marks that nickname with a red ✕ until the next round starts. */
+  concededDescriberId?: PlayerId | null;
   send?: (event: ClientEvent) => boolean;
 }
 
@@ -39,10 +45,13 @@ export function Scoreboard({
   yourPlayerId,
   reactions,
   inRound = false,
+  correctPlayerIds = [],
+  concededDescriberId = null,
   send,
 }: Props) {
   const { t } = useTranslation();
   const sorted = [...teams].sort((a, b) => b.score - a.score);
+  const correctSet = new Set(correctPlayerIds);
   return (
     <section className="bento p-4 md:p-5">
       <div className="flex items-baseline justify-between mb-3">
@@ -63,6 +72,36 @@ export function Scoreboard({
           const describerMember = teamHasDescriber
             ? members.find((m) => m.id === currentDescriberId)
             : null;
+          // Resolve the per-player status (✓ guessed correctly / ✕ this
+          // describer just conceded / nothing). The describer can't guess,
+          // so they only ever get the ✕ marker.
+          const statusFor = (m: PlayerPublic): React.ReactNode => {
+            if (m.id === concededDescriberId) {
+              return (
+                <span
+                  className="ml-1 font-bold"
+                  style={{ color: "#c1283c" }}
+                  title={t("play.conceded_marker_aria")}
+                  aria-label={t("play.conceded_marker_aria")}
+                >
+                  ✕
+                </span>
+              );
+            }
+            if (correctSet.has(m.id) && m.id !== currentDescriberId) {
+              return (
+                <span
+                  className="ml-1 font-bold"
+                  style={{ color: "#0e7a3a" }}
+                  title={t("play.correct_marker_aria")}
+                  aria-label={t("play.correct_marker_aria")}
+                >
+                  ✓
+                </span>
+              );
+            }
+            return null;
+          };
           return (
             <li
               key={team.id}
@@ -82,6 +121,7 @@ export function Scoreboard({
                       ☞ {t("play.describing")}
                     </span>
                   )}
+                  {isSoloRow && members[0] && statusFor(members[0])}
                 </span>
                 <span className="numeral text-2xl">{team.score}</span>
               </div>
@@ -102,6 +142,7 @@ export function Scoreboard({
                           ☞ {t("play.describing")}
                         </span>
                       )}
+                      {statusFor(m)}
                     </li>
                   ))}
                 </ul>

@@ -63,7 +63,7 @@
     },
     "themes": {
       "title": "Pick your themes",
-      "subtitle_one": "Each player picks 1 theme.",
+      "subtitle_one": "Each player picks 1 or 2 themes.",
       "subtitle_two": "Each player picks 1 or 2 themes.",
       "your_pick_label": "Your pick",
       "your_picks_label": "Your picks",
@@ -79,7 +79,9 @@
       "gen_action": "Generate",
       "gen_in_flight": "Generating…",
       "gen_cooldown": "Wait {{seconds}}s",
-      "gen_cap_reached": "Generated cap reached ({{count}}/{{max}})"
+      "gen_cap_reached": "Generated cap reached ({{count}}/{{max}})",
+      "gen_player_cap_reached": "You've used your {{max}} generations ({{count}}/{{max}})",
+      "gen_room_cap_reached": "Room hit the {{max}}-theme generation ceiling"
     },
     "nickname_edit_aria": "Edit your nickname",
     "code_copy_aria": "Copy room code",
@@ -186,6 +188,8 @@
     "reactions_label": "Reactions",
     "reaction_like_aria": "Thumbs up for the describer",
     "reaction_dislike_aria": "Thumbs down for the describer",
+    "correct_marker_aria": "Guessed it!",
+    "conceded_marker_aria": "Conceded this round",
     "translate_kicker": "Translate",
     "translate_src_label": "From language",
     "translate_dst_label": "To language",

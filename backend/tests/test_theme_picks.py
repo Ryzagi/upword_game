@@ -12,13 +12,11 @@ from app.rooms.room import Room, _max_picks_per_player
 # ----------------------------------------------------------- _max_picks_per_player
 
 
-def test_max_picks_2_players_is_2() -> None:
+def test_max_picks_is_two_regardless_of_player_count() -> None:
+    """Every player can pick 1–2 themes, regardless of room size."""
     assert _max_picks_per_player(2) == 2
-
-
-def test_max_picks_3_plus_players_is_1() -> None:
-    assert _max_picks_per_player(3) == 1
-    assert _max_picks_per_player(6) == 1
+    assert _max_picks_per_player(3) == 2
+    assert _max_picks_per_player(6) == 2
 
 
 # ------------------------------------------------------------ set_player_theme_picks
@@ -63,18 +61,96 @@ async def test_set_picks_caps_at_two_for_2_player_room(
         await room.set_player_theme_picks(p1.id, ids)
 
 
-async def test_set_picks_caps_at_one_for_3_player_room(
+async def test_can_generate_theme_blocks_after_player_cap(
     sample_corpus_en: Corpus,
 ) -> None:
-    if len(sample_corpus_en.themes) < 2:
-        pytest.skip("corpus has fewer than 2 themes")
+    """A single player can have at most MAX_GENERATED_THEMES_PER_PLAYER
+    themes in this room. The third request is rate-error capped."""
+    from app.corpus.schema import Theme, Word
+    from app.rooms.room import MAX_GENERATED_THEMES_PER_PLAYER
+
+    room = Room("AAA111", corpus=sample_corpus_en)
+    p_alex, _ = await room.add_player("Alex")
+    await room.add_player("Mira")
+
+    def _theme(idx: int) -> Theme:
+        return Theme(
+            id=f"ai-test-{idx}",
+            name=f"Test {idx}",
+            icon=None,
+            words=[
+                Word(id=f"w{idx}-{d}", text=f"w{idx}-{d}", difficulty=d, hint="A word.")
+                for d in (1, 2, 3, 4, 5)
+            ],
+        )
+
+    async with room.lock:
+        for i in range(MAX_GENERATED_THEMES_PER_PLAYER):
+            room.add_generated_theme(_theme(i), p_alex.id)
+        allowed, code = room.can_generate_theme_locked(p_alex.id)
+
+    assert allowed is False
+    assert code == "theme_gen_cap_reached"
+
+
+async def test_can_generate_theme_still_allowed_for_a_different_player(
+    sample_corpus_en: Corpus,
+) -> None:
+    """Player A's cap doesn't block Player B."""
+    from app.corpus.schema import Theme, Word
+    from app.rooms.room import MAX_GENERATED_THEMES_PER_PLAYER
+
+    room = Room("AAA111", corpus=sample_corpus_en)
+    p_alex, _ = await room.add_player("Alex")
+    p_mira, _ = await room.add_player("Mira")
+
+    async with room.lock:
+        for i in range(MAX_GENERATED_THEMES_PER_PLAYER):
+            room.add_generated_theme(
+                Theme(
+                    id=f"ai-alex-{i}",
+                    name=f"Alex {i}",
+                    icon=None,
+                    words=[
+                        Word(
+                            id=f"alex-{i}-{d}",
+                            text=f"alex-{i}-{d}",
+                            difficulty=d,
+                            hint="A word.",
+                        )
+                        for d in (1, 2, 3, 4, 5)
+                    ],
+                ),
+                p_alex.id,
+            )
+        # Alex is capped.
+        a_allowed, a_code = room.can_generate_theme_locked(p_alex.id)
+        # Mira has used 0 generations — should be allowed (modulo cooldown,
+        # which she hasn't triggered yet).
+        m_allowed, m_code = room.can_generate_theme_locked(p_mira.id)
+
+    assert a_allowed is False and a_code == "theme_gen_cap_reached"
+    assert m_allowed is True and m_code is None
+
+
+async def test_set_picks_caps_at_two_for_3_player_room(
+    sample_corpus_en: Corpus,
+) -> None:
+    """Even in a 3+ player room every player can still pick up to 2 themes —
+    three picks must be rejected."""
+    if len(sample_corpus_en.themes) < 3:
+        pytest.skip("corpus has fewer than 3 themes")
     room = Room("AAA111", corpus=sample_corpus_en)
     p1, _ = await room.add_player("Alex")
     await room.add_player("Mira")
     await room.add_player("Pat")
-    ids = [t.id for t in sample_corpus_en.themes[:2]]
+    # Two picks → fine.
+    two_ids = [t.id for t in sample_corpus_en.themes[:2]]
+    await room.set_player_theme_picks(p1.id, two_ids)
+    # Three picks → rejected.
+    three_ids = [t.id for t in sample_corpus_en.themes[:3]]
     with pytest.raises(BadThemePicksError):
-        await room.set_player_theme_picks(p1.id, ids)
+        await room.set_player_theme_picks(p1.id, three_ids)
 
 
 async def test_set_picks_rejects_theme_already_claimed_by_another(

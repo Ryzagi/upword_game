@@ -9,6 +9,21 @@ from app.ai.theme_generator import ThemeGenerationError, ThemeGenerator
 
 
 def _good_payload() -> dict:
+    """New schema shape: one named field per difficulty."""
+    return {
+        "name": "Space",
+        "icon": "rocket",
+        "word_1": {"text": "moon",      "hint": "We see it at night near the Earth."},
+        "word_2": {"text": "rocket",    "hint": "A propelled vehicle that breaks free of gravity."},
+        "word_3": {"text": "asteroid",  "hint": "A rocky chunk drifting between planets."},
+        "word_4": {"text": "supernova", "hint": "A massive stellar explosion at the end of a star's life."},
+        "word_5": {"text": "exoplanet", "hint": "A world orbiting a sun other than ours."},
+    }
+
+
+def _legacy_array_payload() -> dict:
+    """Legacy shape (words[] with explicit difficulty) — kept for the
+    fallback parser test."""
     return {
         "name": "Space",
         "icon": "rocket",
@@ -45,23 +60,31 @@ def test_build_theme_id_collision_synthesises_unique_suffix() -> None:
 def test_build_theme_rejects_hint_that_contains_target() -> None:
     gen = _make_gen()
     payload = _good_payload()
-    payload["words"][0]["hint"] = "Look up — you can see the moon at night."
+    payload["word_1"]["hint"] = "Look up — you can see the moon at night."
     with pytest.raises(ThemeGenerationError):
         gen._build_theme(payload, existing_ids=set())  # noqa: SLF001
 
 
-def test_build_theme_rejects_missing_difficulty() -> None:
+def test_build_theme_rejects_missing_difficulty_field() -> None:
+    """If a word_N field is missing or not a dict, reject."""
     gen = _make_gen()
     payload = _good_payload()
-    payload["words"][2]["difficulty"] = 1  # duplicate, no level 3
+    del payload["word_3"]
     with pytest.raises(ThemeGenerationError):
         gen._build_theme(payload, existing_ids=set())  # noqa: SLF001
 
 
-def test_build_theme_rejects_wrong_word_count() -> None:
+def test_build_theme_accepts_legacy_array_shape() -> None:
+    """The fallback parser should still accept the old words[] schema."""
     gen = _make_gen()
-    payload = _good_payload()
-    payload["words"] = payload["words"][:4]
+    theme = gen._build_theme(_legacy_array_payload(), existing_ids=set())  # noqa: SLF001
+    assert {w.difficulty for w in theme.words} == {1, 2, 3, 4, 5}
+
+
+def test_build_theme_rejects_legacy_duplicate_difficulty() -> None:
+    gen = _make_gen()
+    payload = _legacy_array_payload()
+    payload["words"][2]["difficulty"] = 1  # duplicate
     with pytest.raises(ThemeGenerationError):
         gen._build_theme(payload, existing_ids=set())  # noqa: SLF001
 
@@ -84,7 +107,7 @@ async def test_generate_retries_bad_response_then_succeeds(monkeypatch) -> None:
 
     call_count = 0
     bad_payload = _good_payload()
-    bad_payload["words"] = bad_payload["words"][:3]  # only 3 words → bad_response
+    del bad_payload["word_3"]  # missing difficulty → bad_response
     good_payload = _good_payload()
 
     async def fake_once(*, prompt, language, existing_theme_ids):  # type: ignore[no-untyped-def]
@@ -105,7 +128,7 @@ async def test_generate_gives_up_after_max_attempts(monkeypatch) -> None:
 
     gen = _make_gen()
     bad_payload = _good_payload()
-    bad_payload["words"] = bad_payload["words"][:3]
+    del bad_payload["word_3"]
 
     call_count = 0
 

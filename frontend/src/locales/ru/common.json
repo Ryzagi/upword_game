@@ -64,7 +64,7 @@
     },
     "themes": {
       "title": "Выберите темы",
-      "subtitle_one": "Каждый игрок выбирает 1 тему.",
+      "subtitle_one": "Каждый игрок выбирает 1 или 2 темы.",
       "subtitle_two": "Каждый игрок выбирает 1 или 2 темы.",
       "your_pick_label": "Ваш выбор",
       "your_picks_label": "Ваши темы",
@@ -80,7 +80,9 @@
       "gen_action": "Сгенерировать",
       "gen_in_flight": "Генерирую…",
       "gen_cooldown": "Подождите {{seconds}}с",
-      "gen_cap_reached": "Лимит сгенерированных тем ({{count}}/{{max}})"
+      "gen_cap_reached": "Лимит сгенерированных тем ({{count}}/{{max}})",
+      "gen_player_cap_reached": "Вы использовали свои {{max}} генерации ({{count}}/{{max}})",
+      "gen_room_cap_reached": "В комнате достигнут общий лимит в {{max}} тем"
     },
     "nickname_edit_aria": "Изменить имя",
     "code_copy_aria": "Скопировать код комнаты",
@@ -189,6 +191,8 @@
     "reactions_label": "Реакции",
     "reaction_like_aria": "Лайк описывающему",
     "reaction_dislike_aria": "Дизлайк описывающему",
+    "correct_marker_aria": "Угадал(а)!",
+    "conceded_marker_aria": "Сдался(ась) в этом раунде",
     "translate_kicker": "Перевести",
     "translate_src_label": "С языка",
     "translate_dst_label": "На язык",

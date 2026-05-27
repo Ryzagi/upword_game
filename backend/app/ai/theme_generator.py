@@ -38,13 +38,52 @@ GENERATION_MAX_ATTEMPTS = 3
 # short enough to keep the model focused.
 MAX_PROMPT_LENGTH = 400
 
+def _word_schema(difficulty: int) -> dict[str, Any]:
+    descriptors = {
+        1: "Very easy — a kid would know it. Concrete object or simple action.",
+        2: "Easy — clearly recognisable, slightly less concrete.",
+        3: "Medium — familiar word but harder to gesture or pantomime.",
+        4: "Hard — familiar word that's abstract or relational.",
+        5: "Hardest — familiar word that's highly abstract or polysemous.",
+    }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["text", "hint"],
+        "properties": {
+            "text": {
+                "type": "string",
+                "description": (
+                    f"Difficulty {difficulty} ({descriptors[difficulty]}) — "
+                    "the secret word a player has to guess. Lowercase, in "
+                    "the target language, one or two words separated by a "
+                    "single space."
+                ),
+            },
+            "hint": {
+                "type": "string",
+                "description": (
+                    "A 1-sentence clue that gestures at the word WITHOUT "
+                    "containing the word itself or any obvious morphological "
+                    "variant of it."
+                ),
+            },
+        },
+    }
+
+
+# The schema has FIVE explicitly-named required fields (word_1..word_5).
+# This makes it structurally impossible for the model to skip a difficulty
+# level. Previous shape — an unconstrained `words` array of 5 — let the
+# model return things like difficulties [1, 1, 3, 4, 5], which our post-
+# validator caught but only after burning a retry attempt.
 _THEME_SCHEMA: dict[str, Any] = {
     "name": "generated_theme",
     "strict": True,
     "schema": {
         "type": "object",
         "additionalProperties": False,
-        "required": ["name", "icon", "words"],
+        "required": ["name", "icon", "word_1", "word_2", "word_3", "word_4", "word_5"],
         "properties": {
             "name": {
                 "type": "string",
@@ -57,43 +96,11 @@ _THEME_SCHEMA: dict[str, Any] = {
                     "ascii, no emoji). Used as a hint to the UI."
                 ),
             },
-            "words": {
-                "type": "array",
-                "minItems": 5,
-                "maxItems": 5,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["text", "difficulty", "hint"],
-                    "properties": {
-                        "text": {
-                            "type": "string",
-                            "description": (
-                                "The secret word a player has to guess. "
-                                "Lowercase, in the target language, one or "
-                                "two words separated by a single space."
-                            ),
-                        },
-                        "difficulty": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 5,
-                            "description": (
-                                "1 = very common everyday concept, 5 = "
-                                "obscure / requires specialist knowledge."
-                            ),
-                        },
-                        "hint": {
-                            "type": "string",
-                            "description": (
-                                "A 1-sentence clue that gestures at the word "
-                                "WITHOUT containing the word itself or any "
-                                "obvious morphological variant of it."
-                            ),
-                        },
-                    },
-                },
-            },
+            "word_1": _word_schema(1),
+            "word_2": _word_schema(2),
+            "word_3": _word_schema(3),
+            "word_4": _word_schema(4),
+            "word_5": _word_schema(5),
         },
     },
 }
@@ -260,32 +267,30 @@ class ThemeGenerator:
     def _build_theme(self, data: dict[str, Any], existing_ids: set[str]) -> Theme:
         name = (data.get("name") or "").strip()
         icon = (data.get("icon") or "").strip() or None
-        raw_words = data.get("words") or []
-        if not name or not isinstance(raw_words, list) or len(raw_words) != 5:
+        if not name:
             raise ThemeGenerationError("bad_response")
 
-        difficulties_seen: set[int] = set()
+        # New shape: one named field per difficulty. Falls back to the legacy
+        # `words: [...]` shape if the model happens to return that — keeps
+        # us forward-compatible while the schema rollout settles.
+        per_difficulty = self._extract_words_per_difficulty(data)
+        if per_difficulty is None:
+            raise ThemeGenerationError("bad_response")
+
         words: list[Word] = []
         word_ids_seen: set[str] = set()
-        for raw in raw_words:
-            if not isinstance(raw, dict):
+        for difficulty in (1, 2, 3, 4, 5):
+            entry = per_difficulty.get(difficulty)
+            if not isinstance(entry, dict):
                 raise ThemeGenerationError("bad_response")
-            text = (raw.get("text") or "").strip()
-            hint = (raw.get("hint") or "").strip()
-            difficulty = raw.get("difficulty")
-            if (
-                not text
-                or not hint
-                or not isinstance(difficulty, int)
-                or difficulty < 1
-                or difficulty > 5
-            ):
+            text = (entry.get("text") or "").strip()
+            hint = (entry.get("hint") or "").strip()
+            if not text or not hint:
                 raise ThemeGenerationError("bad_response")
             if _hint_contains_target(hint, text):
                 raise ThemeGenerationError("bad_response")
             word_id = _make_word_id(text, word_ids_seen)
             word_ids_seen.add(word_id)
-            difficulties_seen.add(difficulty)
             words.append(
                 Word(
                     id=word_id,
@@ -295,11 +300,47 @@ class ThemeGenerator:
                     aliases=[],
                 )
             )
-        if difficulties_seen != {1, 2, 3, 4, 5}:
-            raise ThemeGenerationError("bad_response")
 
         theme_id = _make_theme_id(name, existing_ids)
         return Theme(id=theme_id, name=name, icon=icon, words=words)
+
+    @staticmethod
+    def _extract_words_per_difficulty(
+        data: dict[str, Any],
+    ) -> dict[int, dict[str, Any]] | None:
+        """Pull the five words out of the response. Accepts the new shape
+        (``word_1``..``word_5`` keys) and the legacy shape (``words`` array
+        with explicit ``difficulty`` fields). Returns None if neither shape
+        yields exactly five entries covering difficulties 1..5.
+        """
+        out: dict[int, dict[str, Any]] = {}
+
+        # Preferred: named fields.
+        for difficulty in range(1, 6):
+            entry = data.get(f"word_{difficulty}")
+            if isinstance(entry, dict):
+                out[difficulty] = entry
+        if len(out) == 5:
+            return out
+
+        # Legacy fallback: array with explicit difficulty per item.
+        raw_words = data.get("words")
+        if isinstance(raw_words, list) and len(raw_words) == 5:
+            seen: dict[int, dict[str, Any]] = {}
+            for raw in raw_words:
+                if not isinstance(raw, dict):
+                    return None
+                d = raw.get("difficulty")
+                if not isinstance(d, int) or d < 1 or d > 5:
+                    return None
+                # Duplicate difficulty? Fail this shape and bail.
+                if d in seen:
+                    return None
+                seen[d] = raw
+            if set(seen.keys()) == {1, 2, 3, 4, 5}:
+                return seen
+
+        return None
 
 
 # --------------------------------------------------------------------- helpers

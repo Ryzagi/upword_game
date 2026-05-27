@@ -13,9 +13,6 @@ interface Props {
 const LANGS: ReadonlyArray<readonly [string, string]> = [
   ["en", "English"],
   ["ru", "Русский"],
-  ["es", "Español"],
-  ["fr", "Français"],
-  ["de", "Deutsch"],
 ];
 
 export function TranslateBar({ defaultSrc = "ru", defaultDst = "en", onPasteToGuess }: Props) {

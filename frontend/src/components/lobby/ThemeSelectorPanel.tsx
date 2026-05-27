@@ -6,8 +6,10 @@ import { useRoomStore } from "../../stores/useRoomStore";
 import type { ClientEvent } from "../../ws/events";
 
 const COOLDOWN_SECONDS = 30;
+// Must match MAX_GENERATED_THEMES_PER_PLAYER in backend/app/rooms/room.py.
+const PLAYER_GEN_CAP = 2;
 // Must match MAX_GENERATED_THEMES_PER_ROOM in backend/app/rooms/room.py.
-const ROOM_CAP = 10;
+const ROOM_GEN_CAP = 20;
 // Must match MAX_PROMPT_LENGTH in backend/app/ai/theme_generator.py.
 const PROMPT_MAX_LENGTH = 400;
 
@@ -56,8 +58,15 @@ export function ThemeSelectorPanel({
   const unionThemes = corpusThemes.filter((t) => unionIds.has(t.id));
 
   // ------- AI generator state -------
-  const generatedCount = corpusThemes.filter((t) => t.generated_by).length;
-  const capReached = generatedCount >= ROOM_CAP;
+  // Per-player generation count: how many of MY generated themes are
+  // currently in the room. The cap is per-player now (was room-wide).
+  const yourGeneratedCount = yourPlayer
+    ? corpusThemes.filter((t) => t.generated_by === yourPlayer.id).length
+    : 0;
+  const totalGeneratedCount = corpusThemes.filter((t) => t.generated_by).length;
+  const playerCapReached = yourGeneratedCount >= PLAYER_GEN_CAP;
+  const roomCapReached = totalGeneratedCount >= ROOM_GEN_CAP;
+  const capReached = playerCapReached || roomCapReached;
 
   function toggle(themeId: string) {
     if (!yourPlayer) return;
@@ -66,9 +75,8 @@ export function ThemeSelectorPanel({
     if (has) {
       next = yourPicks.filter((id) => id !== themeId);
     } else if (yourPicks.length >= maxPicks) {
-      // Cap reached — replace last when max is 1; otherwise no-op.
-      if (maxPicks === 1) next = [themeId];
-      else return;
+      // Cap reached — no-op.
+      return;
     } else {
       next = [...yourPicks, themeId];
     }
@@ -76,8 +84,8 @@ export function ThemeSelectorPanel({
   }
 
   const atMax = yourPicks.length >= maxPicks;
-  const subtitle =
-    maxPicks >= 2 ? t("lobby.themes.subtitle_two") : t("lobby.themes.subtitle_one");
+  // Cap is uniform at 2 picks per player regardless of room size.
+  const subtitle = t("lobby.themes.subtitle_two");
 
   return (
     <section
@@ -103,7 +111,8 @@ export function ThemeSelectorPanel({
       <GeneratorForm
         send={send}
         capReached={capReached}
-        generatedCount={generatedCount}
+        yourGeneratedCount={yourGeneratedCount}
+        playerCapReached={playerCapReached}
       />
 
       {corpusThemes.length === 0 ? (
@@ -193,19 +202,30 @@ export function ThemeSelectorPanel({
 
 // ----------------------------------------------------- AI generator form
 
+// Approximate end-to-end generation time for a single happy-path call.
+// The progress bar fills to ~90% over this duration, then lingers there
+// until the response actually arrives. Tuned empirically: a clean call
+// with no retries is ~5-10s; a 3-attempt retry can take ~25s.
+const GEN_EXPECTED_MS = 12_000;
+// How long to leave the bar at 100% after success before hiding it.
+const GEN_FINAL_SNAP_MS = 600;
+
 function GeneratorForm({
   send,
   capReached,
-  generatedCount,
+  yourGeneratedCount,
+  playerCapReached,
 }: {
   send: (event: ClientEvent) => boolean;
   capReached: boolean;
-  generatedCount: number;
+  yourGeneratedCount: number;
+  playerCapReached: boolean;
 }) {
   const { t } = useTranslation();
   const [prompt, setPrompt] = useState("");
   const [inFlight, setInFlight] = useState(false);
   const [cooldownLeft, setCooldownLeft] = useState(0);
+  const [progress, setProgress] = useState(0);
   const lastError = useRoomStore((s) => s.lastError);
   const corpusThemes = useRoomStore((s) => s.corpusThemes);
 
@@ -215,6 +235,7 @@ function GeneratorForm({
   useEffect(() => {
     if (!inFlight) return;
     setInFlight(false);
+    setProgress(1); // snap to full on success
     setCooldownLeft(COOLDOWN_SECONDS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [corpusThemes.length]);
@@ -232,8 +253,33 @@ function GeneratorForm({
       code === "theme_gen_unavailable"
     ) {
       setInFlight(false);
+      setProgress(0);
     }
   }, [lastError, inFlight]);
+
+  // Drive the progress bar with rAF while a generation is in flight.
+  // Fills 0 → 0.9 over GEN_EXPECTED_MS and then lingers at 0.9 until the
+  // request resolves (when success snaps it to 1.0 via the effect above).
+  useEffect(() => {
+    if (!inFlight) return;
+    const started = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const elapsed = now - started;
+      const t = Math.min(0.9, elapsed / GEN_EXPECTED_MS);
+      setProgress(t);
+      if (inFlight) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inFlight]);
+
+  // After we snap to 100% on success, fade the bar away.
+  useEffect(() => {
+    if (progress < 1) return;
+    const id = window.setTimeout(() => setProgress(0), GEN_FINAL_SNAP_MS);
+    return () => window.clearTimeout(id);
+  }, [progress]);
 
   // Tick the cooldown timer.
   useEffect(() => {
@@ -256,22 +302,27 @@ function GeneratorForm({
     setPrompt("");
   }
 
-  const buttonLabel = capReached
-    ? t("lobby.themes.gen_cap_reached", {
-        count: generatedCount,
-        max: ROOM_CAP,
+  const buttonLabel = playerCapReached
+    ? t("lobby.themes.gen_player_cap_reached", {
+        count: yourGeneratedCount,
+        max: PLAYER_GEN_CAP,
       })
-    : inFlight
-      ? t("lobby.themes.gen_in_flight")
-      : onCooldown
-        ? t("lobby.themes.gen_cooldown", { seconds: cooldownLeft })
-        : `✨ ${t("lobby.themes.gen_action")}`;
+    : capReached
+      ? t("lobby.themes.gen_room_cap_reached", { max: ROOM_GEN_CAP })
+      : inFlight
+        ? t("lobby.themes.gen_in_flight")
+        : onCooldown
+          ? t("lobby.themes.gen_cooldown", { seconds: cooldownLeft })
+          : `✨ ${t("lobby.themes.gen_action")}`;
 
   const charsLeft = PROMPT_MAX_LENGTH - prompt.length;
   const showCounter = prompt.length >= PROMPT_MAX_LENGTH - 30;
 
+  const showProgress = progress > 0;
+
   return (
-    <form onSubmit={submit} className="flex gap-2 mb-4">
+    <div className="mb-4">
+    <form onSubmit={submit} className="flex gap-2">
       <div className="flex-1 relative">
         <input
           type="text"
@@ -312,5 +363,27 @@ function GeneratorForm({
         )}
       </button>
     </form>
+    {showProgress && (
+      <div
+        className="mt-2 h-1.5 w-full overflow-hidden rounded-full border-2 border-ink"
+        style={{ background: "var(--card)" }}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress * 100)}
+        aria-label={t("lobby.themes.gen_in_flight")}
+      >
+        <div
+          className="h-full"
+          style={{
+            width: `${progress * 100}%`,
+            background: "var(--coral)",
+            transition:
+              progress >= 1 ? "width 200ms ease-out" : "width 120ms linear",
+          }}
+        />
+      </div>
+    )}
+    </div>
   );
 }

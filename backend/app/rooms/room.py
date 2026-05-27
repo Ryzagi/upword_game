@@ -51,22 +51,55 @@ MAX_TEAMS = len(TEAM_COLOR_PALETTE)
 TEAM_NAME_MAX = 24
 MIN_PLAYERS_TO_START = 2
 
-# How many themes each player may pick:
-#   2 players in the room → up to 2 picks each (so 1–4 distinct themes total)
-#   3+ players in the room → exactly 1 pick each (so ≥3 distinct themes total
-#                            if everyone picks something different)
+# Every player picks 1–2 themes for the board, regardless of room size.
+# The exclusivity check still applies (one theme per player), so the actual
+# board size scales naturally with the player count.
+MAX_PICKS_PER_PLAYER = 2
+
+
 def _max_picks_per_player(player_count: int) -> int:
-    return 2 if player_count == 2 else 1
+    # Argument kept for API compatibility — the cap is uniform now.
+    _ = player_count
+    return MAX_PICKS_PER_PLAYER
 
 
 # Interval between successive letter reveals during an active round.
 LETTER_REVEAL_INTERVAL_SECONDS = 40.0
 
 # AI theme generator caps.
-MAX_GENERATED_THEMES_PER_ROOM = 10
+# Per-player limit: how many themes a single player can have generated in
+# their room. Hard room-wide ceiling stays as a safety net so a popular
+# room can't accidentally blow through the corpus.
+MAX_GENERATED_THEMES_PER_PLAYER = 2
+MAX_GENERATED_THEMES_PER_ROOM = 20
 THEME_GEN_COOLDOWN_SECONDS = 30.0
 
 RoomState = Literal["lobby", "board", "round", "ended"]
+
+
+def _log_no_words(room: "Room", theme_id: str, difficulty: int) -> None:
+    """Emit a structured diagnostic when pick_word_for_cell returns None.
+    The line is grep-able as `no_words diagnostic`."""
+    corpus_ids = [t.id for t in room.corpus.themes] if room.corpus else []
+    extra_ids = list(room.extra_themes.keys())
+    extra_theme = room.extra_themes.get(theme_id)
+    extra_word_diffs = (
+        sorted({w.difficulty for w in extra_theme.words}) if extra_theme else None
+    )
+    log.warning(
+        "no_words diagnostic room=%s theme_id=%s difficulty=%d "
+        "in_corpus=%s in_extra=%s extra_word_difficulties=%s "
+        "used_word_ids_count=%d corpus_theme_ids=%s extra_theme_ids=%s",
+        room.code,
+        theme_id,
+        difficulty,
+        theme_id in corpus_ids,
+        theme_id in extra_ids,
+        extra_word_diffs,
+        len(room._used_word_ids),
+        corpus_ids,
+        extra_ids,
+    )
 
 
 def validate_team_name(raw: str) -> str:
@@ -329,6 +362,20 @@ class Room:
         self.theme_generators[theme.id] = generator_player_id
         loop = asyncio.get_event_loop()
         self._theme_gen_last_at[generator_player_id] = loop.time()
+        log.info(
+            "theme_added room=%s theme_id=%s name=%r word_count=%d "
+            "difficulties=%s by=%s",
+            self.code,
+            theme.id,
+            theme.name,
+            len(theme.words),
+            sorted({w.difficulty for w in theme.words}),
+            generator_player_id,
+        )
+
+    def generated_count_for_player_locked(self, player_id: str) -> int:
+        """How many themes this specific player has generated in this room."""
+        return sum(1 for pid in self.theme_generators.values() if pid == player_id)
 
     def can_generate_theme_locked(self, player_id: str) -> tuple[bool, str | None]:
         """Predicate for whether the player can generate right now. Returns
@@ -336,7 +383,14 @@ class Room:
         """
         if self.state != "lobby":
             return False, "room_not_in_lobby"
+        # Hard room ceiling — safety net.
         if len(self.extra_themes) >= MAX_GENERATED_THEMES_PER_ROOM:
+            return False, "theme_gen_cap_reached"
+        # Per-player limit: each player can have up to N generated themes.
+        if (
+            self.generated_count_for_player_locked(player_id)
+            >= MAX_GENERATED_THEMES_PER_PLAYER
+        ):
             return False, "theme_gen_cap_reached"
         last = self._theme_gen_last_at.get(player_id)
         if last is not None:
@@ -512,6 +566,11 @@ class Room:
                 extra_themes=self.extra_themes.values(),
             )
             if word is None:
+                # Diagnostic: when this fires for an AI theme, the most
+                # likely causes are (a) the theme isn't in extra_themes at
+                # all, or (b) it is, but words for this difficulty are
+                # missing/exhausted. Log enough state to tell them apart.
+                _log_no_words(self, theme_id, difficulty)
                 raise NoWordsAvailableError()
 
             ends_at: datetime | None = None

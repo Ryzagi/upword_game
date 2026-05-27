@@ -6,6 +6,7 @@ import type {
   GameSettings,
   PlayerPublic,
   ReactionState,
+  RoundEndedPayload,
   RoundPublic,
   TeamPublic,
 } from "../../api/rooms";
@@ -26,6 +27,7 @@ interface Props {
   yourFreeAttemptsLeft: number | null;
   yourPaidAttemptsTotal: number;
   correctPlayerIds: string[];
+  lastRoundResults: RoundEndedPayload | null;
   guessFlash: GuessFlash | null;
   reactions: ReactionState;
   chatFeed: ChatMessage[];
@@ -50,6 +52,7 @@ export function PlayView({
   yourFreeAttemptsLeft,
   yourPaidAttemptsTotal,
   correctPlayerIds,
+  lastRoundResults,
   guessFlash,
   reactions,
   chatFeed,
@@ -86,6 +89,10 @@ export function PlayView({
           yourPlayerId={yourPlayerId}
           reactions={state === "round" ? reactions : undefined}
           inRound={state === "round"}
+          correctPlayerIds={correctPlayerIds}
+          concededDescriberId={
+            lastRoundResults?.conceded ? lastRoundResults.describer_id : null
+          }
           send={send}
         />
         {state === "round" && (

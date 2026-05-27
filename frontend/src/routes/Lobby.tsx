@@ -362,6 +362,7 @@ function ConnectedRoom({
             yourFreeAttemptsLeft={yourFreeAttemptsLeft}
             yourPaidAttemptsTotal={yourPaidAttemptsTotal}
             correctPlayerIds={correctPlayerIds}
+            lastRoundResults={lastRoundResults}
             guessFlash={guessFlash}
             reactions={reactions}
             chatFeed={chatFeed}
