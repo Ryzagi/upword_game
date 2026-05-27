@@ -27,6 +27,7 @@ interface Props {
   yourPaidAttemptsTotal: number;
   guessFlash: GuessFlash | null;
   hasAlreadyGuessedCorrectly: boolean;
+  yourPlayerId: string | null;
   roomLanguage: string;
   uiLanguage: string;
   send: (event: ClientEvent) => boolean;
@@ -86,26 +87,15 @@ export function RoundView(props: Props) {
             )}
           </div>
         </div>
-        {(isDescriber || (isHost && !isDescriber)) && (
+        {isHost && (
           <div className="mt-3 flex gap-2 flex-wrap">
-            {isDescriber && (
-              <button
-                type="button"
-                onClick={() => send({ type: "round/concede" })}
-                className="btn btn-sm btn-ghost"
-              >
-                {t("play.concede")}
-              </button>
-            )}
-            {isHost && !isDescriber && (
-              <button
-                type="button"
-                onClick={() => send({ type: "round/force_end" })}
-                className="btn btn-sm btn-ghost"
-              >
-                {t("play.force_end")}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => send({ type: "round/force_end" })}
+              className="btn btn-sm btn-ghost"
+            >
+              {t("play.force_end")}
+            </button>
           </div>
         )}
       </div>
@@ -131,6 +121,10 @@ export function RoundView(props: Props) {
           yourPaidAttemptsTotal={yourPaidAttemptsTotal}
           guessFlash={guessFlash}
           hasAlreadyGuessedCorrectly={hasAlreadyGuessedCorrectly}
+          hasConceded={
+            props.yourPlayerId !== null &&
+            (round.conceded_player_ids ?? []).includes(props.yourPlayerId)
+          }
           clearGuessFlash={clearGuessFlash}
           roomLanguage={roomLanguage}
           uiLanguage={uiLanguage}
@@ -354,6 +348,7 @@ function GuesserPanel({
   yourPaidAttemptsTotal,
   guessFlash,
   hasAlreadyGuessedCorrectly,
+  hasConceded,
   clearGuessFlash,
   roomLanguage,
   uiLanguage,
@@ -369,6 +364,7 @@ function GuesserPanel({
   yourPaidAttemptsTotal: number;
   guessFlash: GuessFlash | null;
   hasAlreadyGuessedCorrectly: boolean;
+  hasConceded: boolean;
   clearGuessFlash: () => void;
   roomLanguage: string;
   uiLanguage: string;
@@ -431,7 +427,17 @@ function GuesserPanel({
               {t("play.waiting_for_others")}
             </p>
           </div>
+        ) : hasConceded ? (
+          <div className="bento bento-flat bg-white/0 p-3 text-center">
+            <p className="headline text-xl" style={{ color: "#c1283c" }}>
+              ✕ {t("play.you_conceded")}
+            </p>
+            <p className="text-sm opacity-70 mt-1">
+              {t("play.waiting_for_others_concede")}
+            </p>
+          </div>
         ) : (
+          <>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -477,6 +483,20 @@ function GuesserPanel({
               {t("play.guess_submit")}
             </button>
           </form>
+          <div className="mt-2 text-right">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(t("play.concede_confirm"))) {
+                  send({ type: "round/concede" });
+                }
+              }}
+              className="btn btn-sm btn-ghost text-xs"
+            >
+              ✕ {t("play.concede")}
+            </button>
+          </div>
+          </>
         )}
 
         {inAttemptsMode && yourFreeAttemptsLeft !== null && (

@@ -90,6 +90,7 @@ export function PlayView({
           reactions={state === "round" ? reactions : undefined}
           inRound={state === "round"}
           correctPlayerIds={correctPlayerIds}
+          concededPlayerIds={currentRound?.conceded_player_ids ?? []}
           concededDescriberId={
             lastRoundResults?.conceded ? lastRoundResults.describer_id : null
           }
@@ -143,6 +144,7 @@ export function PlayView({
             yourPaidAttemptsTotal={yourPaidAttemptsTotal}
             guessFlash={guessFlash}
             hasAlreadyGuessedCorrectly={hasAlreadyGuessedCorrectly}
+            yourPlayerId={yourPlayerId}
             roomLanguage={roomLanguage}
             uiLanguage={uiLanguage}
             send={send}

@@ -92,6 +92,8 @@ export interface RoundPublic {
   letter_pattern?: string;
   letter_count?: number;
   revealed_indices?: number[];
+  conceded_player_ids?: PlayerId[];
+  correct_player_ids?: PlayerId[];
 }
 
 export interface ReactionState {

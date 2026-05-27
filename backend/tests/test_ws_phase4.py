@@ -294,8 +294,8 @@ def test_round_ended_payload_includes_results() -> None:
                 _drain_until(joiner_ws, {"round/started"})
                 _drain_until(describer_ws, {"describer/word"})
 
-                # Concede with no guesses; results should report 0 reward + no per_team winners.
-                describer_ws.send_json({"type": "round/concede", "data": {}})
+                # Force-end with no guesses; results should report 0 reward + no per_team winners.
+                host_ws.send_json({"type": "round/force_end", "data": {}})
                 ended = _drain_until(host_ws, {"round/ended"})
                 results = ended["data"]["results"]
                 assert results["describer_points"] == 0

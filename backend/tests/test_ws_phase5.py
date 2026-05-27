@@ -114,8 +114,9 @@ def test_reactions_reset_on_round_end() -> None:
                 _drain_until(host_ws, {"reaction/state"})
                 _drain_until(guesser_ws, {"reaction/state"})
 
-                # Conceding ends the round; subsequent round starts fresh
-                describer_ws.send_json({"type": "round/concede", "data": {}})
+                # End the round (concede is now a guesser action — use
+                # the host's force_end to wrap up).
+                host_ws.send_json({"type": "round/force_end", "data": {}})
                 _drain_until(host_ws, {"round/ended"})
                 _drain_until(joiner_ws, {"round/ended"})
                 _drain_until(host_ws, {"board/state"})

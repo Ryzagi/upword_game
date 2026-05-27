@@ -63,6 +63,10 @@ class Round:
         self.correct_teams_order: list[CorrectTeamEntry] = []
         # every player who has guessed correctly (used to block re-submissions)
         self.correct_player_ids: set[str] = set()
+        # every player who has actively conceded this round — they gave up
+        # trying to guess. Conceded players score nothing and are excluded
+        # from the "everyone has finished" check that ends the round.
+        self.conceded_player_ids: set[str] = set()
         # set when the round is finalised
         self.describer_points: int = 0
         # Populated by Room._finalize_round_locked; mirrors the round/ended
@@ -124,6 +128,8 @@ class Round:
             "letter_pattern": self.letter_pattern(),
             "letter_count": sum(1 for ch in self.word_text if not ch.isspace()),
             "revealed_indices": sorted(self.revealed_indices),
+            "conceded_player_ids": sorted(self.conceded_player_ids),
+            "correct_player_ids": sorted(self.correct_player_ids),
         }
 
     def private(self) -> dict[str, object]:

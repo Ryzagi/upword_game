@@ -112,6 +112,10 @@ class DescriberCannotGuessError(DomainError):
     code = "describer_cannot_guess"
 
 
+class AlreadyConcededError(DomainError):
+    code = "already_conceded"
+
+
 class BadThemePicksError(DomainError):
     code = "bad_theme_picks"
 

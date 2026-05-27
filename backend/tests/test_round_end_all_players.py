@@ -47,7 +47,7 @@ async def test_round_continues_when_one_team_mate_guesses_in_teams_mode(
         describer = room.current_describer_id
         assert describer is not None
         await room.pick_cell(describer, room.board.theme_ids[0], 1)
-        await room.concede(describer)
+        await room.force_end_round()
     assert room.current_describer_id == p_alex.id
 
     await room.pick_cell(p_alex.id, room.board.theme_ids[0], 1)

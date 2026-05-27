@@ -20,8 +20,11 @@ interface Props {
   /** Players who have already guessed correctly this round. Get a green
    *  ✓ next to their nickname. */
   correctPlayerIds?: PlayerId[];
+  /** Guessers who have actively conceded this round. Get a red ✕. */
+  concededPlayerIds?: PlayerId[];
   /** The describer id from the just-finished round if it was conceded —
-   *  marks that nickname with a red ✕ until the next round starts. */
+   *  marks that nickname with a red ✕ until the next round starts.
+   *  (Kept for end-of-round summary view; merged with concededPlayerIds.) */
   concededDescriberId?: PlayerId | null;
   send?: (event: ClientEvent) => boolean;
 }
@@ -46,12 +49,14 @@ export function Scoreboard({
   reactions,
   inRound = false,
   correctPlayerIds = [],
+  concededPlayerIds = [],
   concededDescriberId = null,
   send,
 }: Props) {
   const { t } = useTranslation();
   const sorted = [...teams].sort((a, b) => b.score - a.score);
   const correctSet = new Set(correctPlayerIds);
+  const concededSet = new Set(concededPlayerIds);
   return (
     <section className="bento p-4 md:p-5">
       <div className="flex items-baseline justify-between mb-3">
@@ -72,11 +77,13 @@ export function Scoreboard({
           const describerMember = teamHasDescriber
             ? members.find((m) => m.id === currentDescriberId)
             : null;
-          // Resolve the per-player status (✓ guessed correctly / ✕ this
-          // describer just conceded / nothing). The describer can't guess,
-          // so they only ever get the ✕ marker.
+          // Resolve the per-player status (✓ guessed correctly / ✕ conceded
+          // / nothing). Conceded covers both live in-round guesser concede
+          // and the legacy "describer just conceded" marker on round end.
           const statusFor = (m: PlayerPublic): React.ReactNode => {
-            if (m.id === concededDescriberId) {
+            const isConceded =
+              m.id === concededDescriberId || concededSet.has(m.id);
+            if (isConceded) {
               return (
                 <span
                   className="ml-1 font-bold"

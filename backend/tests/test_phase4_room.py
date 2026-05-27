@@ -296,7 +296,7 @@ async def test_no_reward_on_concede(sample_corpus_en: Corpus) -> None:
     assert describer_team is not None
     score_before = room.teams[describer_team].score
     await room.pick_cell(describer, "sport", 3)
-    await room.concede(describer)
+    await room.force_end_round()
     # No reward, score unchanged.
     assert room.teams[describer_team].score == score_before
 

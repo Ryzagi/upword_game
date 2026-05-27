@@ -17,10 +17,23 @@ export default function Index() {
   const [busy, setBusy] = useState<"create" | "join" | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The corpus language (i.e. theme + word list) the host wants for the
+  // game. Defaults to the host's UI language but is independent of it —
+  // an English-UI host can run a Russian-language room and vice versa.
+  const [gameLanguage, setGameLanguage] = useState<"en" | "ru">(() => {
+    const ui = i18n.resolvedLanguage;
+    return ui === "ru" ? "ru" : "en";
+  });
 
   useEffect(() => {
     setNickname(loadNickname());
   }, []);
+
+  // If the UI language changes (Settings) before the user has clicked
+  // create, follow that as the new default — they're communicating intent.
+  useEffect(() => {
+    setGameLanguage(i18n.resolvedLanguage === "ru" ? "ru" : "en");
+  }, [i18n.resolvedLanguage]);
 
   const trimmedNick = nickname.trim();
   const canCreate = trimmedNick.length > 0 && busy === null;
@@ -32,7 +45,7 @@ export default function Index() {
     setErrorCode(null);
     setBusy("create");
     try {
-      const res = await createRoom(trimmedNick, i18n.resolvedLanguage ?? "en");
+      const res = await createRoom(trimmedNick, gameLanguage);
       saveNickname(trimmedNick);
       saveCredentials(res.code, { player_id: res.player_id, token: res.token });
       navigate(`/r/${res.code}`);
@@ -113,6 +126,28 @@ export default function Index() {
               {t("menu.create_heading")}
             </h2>
             <p className="mt-2 text-white/90">{t("menu.create_body")}</p>
+
+            {/* Corpus language picker — independent of the UI language. */}
+            <div className="mt-4">
+              <p className="eyebrow text-white/80 mb-1.5">
+                {t("menu.game_language_label")}
+              </p>
+              <div className="seg w-full">
+                {(["en", "ru"] as const).map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => setGameLanguage(code)}
+                    data-active={gameLanguage === code}
+                    className="seg-btn flex-1"
+                    aria-pressed={gameLanguage === code}
+                  >
+                    {code === "en" ? "English" : "Русский"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={handleCreate}

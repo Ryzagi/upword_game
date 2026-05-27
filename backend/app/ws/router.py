@@ -403,8 +403,27 @@ async def _handle_pick_cell(room: Room, player_id: str, data: dict[str, Any]) ->
 
 
 async def _handle_concede(room: Room, player_id: str) -> None:
-    ended = await room.concede(player_id)
-    await _emit_round_ended(room, ended, conceded=True, forced=False)
+    """A guesser opts out of trying to guess this round. If they're the
+    last one still trying, this also ends the round."""
+    round_obj, ended = await room.concede(player_id)
+    if ended:
+        # Round ended naturally because everyone has finished. We use the
+        # `forced=False, conceded=False` shape so the summary modal shows
+        # the normal end-of-round view; the conceded_player_ids field on
+        # the round payload tells clients who gave up.
+        await _emit_round_ended(room, round_obj, conceded=False, forced=False)
+    else:
+        # Round still ongoing — broadcast the new conceded state so
+        # everyone's scoreboard / chat updates.
+        await room.broadcast(
+            {
+                "type": "round/concede_state",
+                "data": {
+                    "player_id": player_id,
+                    "conceded_player_ids": sorted(round_obj.conceded_player_ids),
+                },
+            }
+        )
 
 
 async def _handle_force_end(room: Room) -> None:

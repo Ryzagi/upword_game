@@ -151,7 +151,8 @@ def test_non_describer_cannot_pick_cell() -> None:
 # ----------------------------------------------------- concede + board cycle
 
 
-def test_concede_emits_round_ended_and_board_state() -> None:
+def test_concede_by_last_guesser_ends_round() -> None:
+    """Guesser conceding when they're the last one trying ends the round."""
     with TestClient(app) as client:
         code, _, host_token = _create_room(client, "Alex")
         joiner_id, joiner_token = _join_room(client, code, "Mira")
@@ -177,9 +178,12 @@ def test_concede_emits_round_ended_and_board_state() -> None:
                 _drain_until(guesser_ws, {"round/started"})
                 _drain_until(describer_ws, {"describer/word"})
 
-                describer_ws.send_json({"type": "round/concede", "data": {}})
+                # The single guesser concedes → round ends.
+                guesser_ws.send_json({"type": "round/concede", "data": {}})
                 ended = _drain_until(guesser_ws, {"round/ended"})
-                assert ended["data"]["conceded"] is True
+                # Note: `conceded` field on round/ended is now False because
+                # the round ended via the natural "everyone finished" path.
+                # Per-player concede state lives on round_obj.conceded_player_ids.
                 assert "word_text" in ended["data"]
                 board_state = _drain_until(guesser_ws, {"board/state"})
                 assert board_state["data"]["board"]["used"] == [
@@ -306,7 +310,10 @@ def test_play_again_after_board_exhausted() -> None:
                             _drain_until(d_ws, {"describer/word"})
                         except AssertionError:
                             pass
-                        d_ws.send_json({"type": "round/concede", "data": {}})
+                        # Host force-ends each round to march through the
+                        # whole board. (Describer concede is no longer a
+                        # thing — concede is now a guesser action.)
+                        host_ws.send_json({"type": "round/force_end", "data": {}})
                         _drain_until(host_ws, {"round/ended"})
                         _drain_until(joiner_ws, {"round/ended"})
                         # Next we expect either board/state (continuing) or

@@ -17,6 +17,7 @@ from app.game.round import CorrectTeamEntry, Round
 from app.game.scoring import describer_reward, points_for_team_position
 from app.game.word_picker import pick_word_for_cell
 from app.models.errors import (
+    AlreadyConcededError,
     AlreadyGuessedCorrectlyError,
     BadTeamConfigError,
     BadThemePicksError,
@@ -595,13 +596,31 @@ class Room:
             self.state = "round"
             return self.current_round
 
-    async def concede(self, player_id: str) -> Round:
+    async def concede(self, player_id: str) -> tuple[Round, bool]:
+        """A *guesser* gives up trying to guess this round. They score
+        nothing and are excluded from the "everyone has finished" check.
+        Returns ``(round, ended)`` — ``ended`` is True if conceding this
+        player completed the round (everyone else has already guessed or
+        conceded).
+        """
         async with self.lock:
             if self.state != "round" or self.current_round is None:
                 raise RoundNotActiveError()
-            if player_id != self.current_round.describer_id:
-                raise NotDescriberError()
-            return self._finalize_round_locked(conceded=True, forced=False)
+            if player_id == self.current_round.describer_id:
+                # The describer can't concede — they're not guessing.
+                raise DescriberCannotGuessError()
+            if player_id not in self.players:
+                raise InvalidTokenError()
+            if player_id in self.current_round.correct_player_ids:
+                # They already guessed — no-op (return ongoing round).
+                return self.current_round, False
+            if player_id in self.current_round.conceded_player_ids:
+                raise AlreadyConcededError()
+            self.current_round.conceded_player_ids.add(player_id)
+            if self._all_non_describer_players_finished_locked():
+                ended = self._finalize_round_locked(conceded=False, forced=False)
+                return ended, True
+            return self.current_round, False
 
     async def force_end_round(self) -> Round:
         async with self.lock:
@@ -809,6 +828,20 @@ class Room:
             return False
         correct = self.current_round.correct_player_ids
         return all(pid in correct for pid in non_describer_ids)
+
+    def _all_non_describer_players_finished_locked(self) -> bool:
+        """True once every non-describer player has either guessed
+        correctly OR conceded — i.e. nobody is still trying. Used to end
+        the round naturally when the last guesser gives up."""
+        if self.current_round is None:
+            return False
+        describer_id = self.current_round.describer_id
+        non_describer_ids = [pid for pid in self.players if pid != describer_id]
+        if not non_describer_ids:
+            return False
+        correct = self.current_round.correct_player_ids
+        conceded = self.current_round.conceded_player_ids
+        return all(pid in correct or pid in conceded for pid in non_describer_ids)
 
     # ----------------------------------------------- finalising a round
 

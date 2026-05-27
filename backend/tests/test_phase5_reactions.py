@@ -67,7 +67,7 @@ async def test_reactions_reset_when_new_round_picks(sample_corpus_en: Corpus) ->
     assert room.current_round is not None
     assert guesser in room.current_round.reactions
     # End the round, start the next round
-    await room.concede(describer)
+    await room.force_end_round()
     assert room.state == "board"
     next_describer = room.current_describer_id
     assert next_describer is not None

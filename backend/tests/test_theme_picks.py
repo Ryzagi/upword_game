@@ -305,7 +305,7 @@ async def test_ai_generated_theme_cell_picks_correctly(
         rnd = await room.pick_cell(describer, "ai-space", difficulty)
         assert rnd.word_text  # non-empty
         # End the round so the board comes back and rotation advances.
-        await room.concede(describer)
+        await room.force_end_round()
 
 
 async def test_round_public_includes_letter_fields(sample_corpus_en: Corpus) -> None:

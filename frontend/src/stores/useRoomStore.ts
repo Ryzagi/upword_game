@@ -60,6 +60,10 @@ interface RoomStoreState {
   state: RoomState;
   hostId: PlayerId | null;
   yourPlayerId: PlayerId | null;
+  /** Corpus language for this room (the language the WORDS are in). Set at
+   *  room creation and frozen for the room's lifetime. Separate from each
+   *  player's UI language. */
+  roomLanguage: string;
   players: PlayerPublic[];
   teams: TeamPublic[];
   settings: GameSettings;
@@ -115,6 +119,7 @@ const empty: Omit<
   state: "lobby",
   hostId: null,
   yourPlayerId: null,
+  roomLanguage: "en",
   players: [],
   teams: [],
   settings: DEFAULT_SETTINGS,
@@ -161,6 +166,7 @@ export const useRoomStore = create<RoomStoreState>((set) => ({
             code: d.code,
             state: d.state,
             hostId: d.host_id,
+            roomLanguage: d.language ?? "en",
             yourPlayerId: d.your_player_id,
             players: d.players,
             teams: d.teams,
@@ -260,6 +266,15 @@ export const useRoomStore = create<RoomStoreState>((set) => ({
           return {
             corpusThemes: event.data.corpus_themes,
           };
+        case "round/concede_state":
+          return current.currentRound
+            ? {
+                currentRound: {
+                  ...current.currentRound,
+                  conceded_player_ids: event.data.conceded_player_ids,
+                },
+              }
+            : {};
         case "round/letter_reveal":
           return current.currentRound
             ? {

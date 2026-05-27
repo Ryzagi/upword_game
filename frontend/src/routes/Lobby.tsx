@@ -154,6 +154,7 @@ function ConnectedRoom({
   const yourPlayerId = useRoomStore((s) => s.yourPlayerId);
   const state = useRoomStore((s) => s.state);
   const board = useRoomStore((s) => s.board);
+  const roomLanguage = useRoomStore((s) => s.roomLanguage);
   const corpusThemes = useRoomStore((s) => s.corpusThemes);
   const maxThemePicksPerPlayer = useRoomStore((s) => s.maxThemePicksPerPlayer);
   const currentRound = useRoomStore((s) => s.currentRound);
@@ -285,6 +286,14 @@ function ConnectedRoom({
               </h1>
             </div>
             <div className="flex flex-col items-end gap-3">
+              <span
+                className="chip chip-ink !text-[0.65rem] !py-1"
+                title={t("lobby.game_language_chip_aria", {
+                  lang: roomLanguage.toUpperCase(),
+                })}
+              >
+                🌐 {roomLanguage.toUpperCase()}
+              </span>
               <span className="dot" data-state={status} aria-live="polite">
                 {t(`lobby.connection.${status}`, status)}
               </span>
@@ -366,7 +375,7 @@ function ConnectedRoom({
             guessFlash={guessFlash}
             reactions={reactions}
             chatFeed={chatFeed}
-            roomLanguage="en"
+            roomLanguage={roomLanguage}
             uiLanguage={i18n.resolvedLanguage ?? "en"}
             players={players}
             teams={teams}

@@ -173,7 +173,9 @@ async def test_pick_cell_rejects_used_cell(sample_corpus_en: Corpus) -> None:
     describer = room.current_describer_id
     assert describer is not None
     await room.pick_cell(describer, "sport", 3)
-    await room.concede(describer)
+    # End the round via the host-side force-end (concede is now a guesser
+    # action and only ends the round once everyone's finished).
+    await room.force_end_round()
     # next describer now in seat
     next_describer = room.current_describer_id
     assert next_describer is not None
@@ -191,9 +193,10 @@ async def test_pick_cell_rejects_when_not_on_board(sample_corpus_en: Corpus) -> 
 # --------------------------------------------------------------- concede flow
 
 
-async def test_concede_advances_describer_and_resets_state(
+async def test_concede_by_last_guesser_ends_round(
     sample_corpus_en: Corpus,
 ) -> None:
+    """When the only guesser concedes, the round ends naturally."""
     room = Room("AAA111", corpus=sample_corpus_en)
     await room.add_player("Alex")
     await room.add_player("Mira")
@@ -201,16 +204,20 @@ async def test_concede_advances_describer_and_resets_state(
     describer = room.current_describer_id
     assert describer is not None
     await room.pick_cell(describer, "sport", 1)
-    await room.concede(describer)
+    guesser = next(pid for pid in room.players if pid != describer)
+    _, ended = await room.concede(guesser)
+    assert ended is True
     assert room.state == "board"
     assert room.current_round is None
-    # next describer is a different player
     assert room.current_describer_id != describer
 
 
-async def test_concede_rejected_for_non_describer(
+async def test_concede_rejected_for_describer(
     sample_corpus_en: Corpus,
 ) -> None:
+    """The describer isn't a guesser — they can't concede."""
+    from app.models.errors import DescriberCannotGuessError
+
     room = Room("AAA111", corpus=sample_corpus_en)
     await room.add_player("Alex")
     await room.add_player("Mira")
@@ -218,9 +225,31 @@ async def test_concede_rejected_for_non_describer(
     describer = room.current_describer_id
     assert describer is not None
     await room.pick_cell(describer, "sport", 1)
-    other = next(pid for pid in room.players if pid != describer)
-    with pytest.raises(NotDescriberError):
-        await room.concede(other)
+    with pytest.raises(DescriberCannotGuessError):
+        await room.concede(describer)
+
+
+async def test_concede_does_not_end_round_when_others_still_trying(
+    sample_corpus_en: Corpus,
+) -> None:
+    """In a 3-player room, one guesser conceding leaves the second still
+    in the round — the round doesn't end yet."""
+    room = Room("AAA111", corpus=sample_corpus_en)
+    await room.add_player("Alex")
+    await room.add_player("Mira")
+    await room.add_player("Pat")
+    await room.start_game()
+    describer = room.current_describer_id
+    assert describer is not None
+    await room.pick_cell(describer, "sport", 1)
+    guessers = [pid for pid in room.players if pid != describer]
+    _, ended = await room.concede(guessers[0])
+    assert ended is False
+    assert room.state == "round"
+    # The second guesser conceding finishes everyone off → round ends.
+    _, ended = await room.concede(guessers[1])
+    assert ended is True
+    assert room.state == "board"
 
 
 async def test_concede_rejected_when_no_round(sample_corpus_en: Corpus) -> None:
@@ -228,8 +257,9 @@ async def test_concede_rejected_when_no_round(sample_corpus_en: Corpus) -> None:
     await room.add_player("Alex")
     await room.add_player("Mira")
     await room.start_game()
+    other = next(iter(room.players))
     with pytest.raises(RoundNotActiveError):
-        await room.concede(room.current_describer_id or "")
+        await room.concede(other)
 
 
 # --------------------------------------------------------------- force_end
@@ -293,7 +323,7 @@ async def test_game_ends_when_board_full(sample_corpus_en: Corpus) -> None:
             if not room.board.is_used(t, d)
         )
         await room.pick_cell(describer, cell[0], cell[1])
-        await room.concede(describer)
+        await room.force_end_round()
     assert room.state == "ended"
     assert room.board.is_full()
 
@@ -325,7 +355,7 @@ async def test_play_again_resets_to_lobby_and_clears_picks(
             if not room.board.is_used(t, d)
         )
         await room.pick_cell(describer, cell[0], cell[1])
-        await room.concede(describer)
+        await room.force_end_round()
     assert room.state == "ended"
     # Mess with a team score to verify it resets.
     next(iter(room.teams.values())).score = 999
@@ -392,4 +422,4 @@ async def test_words_dont_repeat_within_a_game(sample_corpus_en: Corpus) -> None
         round_obj = await room.pick_cell(describer, cell[0], cell[1])
         assert round_obj.word_id not in seen_words
         seen_words.add(round_obj.word_id)
-        await room.concede(describer)
+        await room.force_end_round()

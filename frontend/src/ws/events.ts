@@ -152,6 +152,14 @@ export interface RoundLetterRevealEvent {
   };
 }
 
+export interface RoundConcedeStateEvent {
+  type: "round/concede_state";
+  data: {
+    player_id: PlayerId;
+    conceded_player_ids: PlayerId[];
+  };
+}
+
 export interface LobbyThemeAddedEvent {
   type: "lobby/theme_added";
   data: {
@@ -186,6 +194,7 @@ export type ServerEvent =
   | GuessFeedEvent
   | ReactionStateEvent
   | RoundLetterRevealEvent
+  | RoundConcedeStateEvent
   | LobbyThemeAddedEvent
   | RoundEndedEvent
   | GameEndedEvent
