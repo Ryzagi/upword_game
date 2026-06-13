@@ -45,6 +45,9 @@ class Round:
         self.theme_id = theme_id
         self.difficulty = difficulty
         self.base_score = base_score
+        # Lightning-cell multiplier already baked into base_score above;
+        # kept around purely so the UI can show a "⚡ ×2" badge. 1.0 = normal.
+        self.score_multiplier: float = 1.0
         self.word_id = word_id
         self.word_text = word_text
         self.hint = hint
@@ -120,6 +123,7 @@ class Round:
             "theme_id": self.theme_id,
             "difficulty": self.difficulty,
             "base_score": self.base_score,
+            "score_multiplier": self.score_multiplier,
             "started_at": self.started_at.isoformat(),
             "ends_at": self.ends_at.isoformat() if self.ends_at else None,
             "state": self.state,

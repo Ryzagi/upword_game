@@ -138,3 +138,11 @@ class ThemeGenInvalidPromptError(DomainError):
 
 class ThemeGenUnavailableError(DomainError):
     code = "theme_gen_unavailable"
+
+
+class ThemeNotFoundError(DomainError):
+    code = "theme_not_found"
+
+
+class ThemeActionForbiddenError(DomainError):
+    code = "theme_action_forbidden"

@@ -83,7 +83,11 @@
       "gen_cooldown": "Подождите {{seconds}}с",
       "gen_cap_reached": "Лимит сгенерированных тем ({{count}}/{{max}})",
       "gen_player_cap_reached": "Вы использовали свои {{max}} генерации ({{count}}/{{max}})",
-      "gen_room_cap_reached": "В комнате достигнут общий лимит в {{max}} тем"
+      "gen_room_cap_reached": "В комнате достигнут общий лимит в {{max}} тем",
+      "surprise_hint": "Случайная смесь слов из всех тем",
+      "regenerate": "Пересоздать слова",
+      "delete": "Удалить тему",
+      "delete_confirm": "Удалить «{{name}}»? Тема исчезнет у всех."
     },
     "nickname_edit_aria": "Изменить имя",
     "code_copy_aria": "Скопировать код комнаты",
@@ -136,6 +140,7 @@
     "board_title": "Выберите категорию",
     "cells_used": "{{used}} из {{total}}",
     "cell_label": "{{theme}} за {{score}} очков",
+    "cell_label_lightning": "{{theme}} за {{score}} очков — бонус-молния ×{{multiplier}}",
     "round_header_kicker": "идёт раунд",
     "describer_label": "Загадывает",
     "concede": "Сдаться",
@@ -312,6 +317,8 @@
     "theme_gen_failed": "Не удалось сгенерировать тему — попробуйте другой запрос.",
     "theme_gen_invalid_prompt": "Запрос пуст или длиннее 400 символов.",
     "theme_gen_unavailable": "Генерация тем ИИ не включена на этом сервере.",
+    "theme_not_found": "Этой темы больше нет.",
+    "theme_action_forbidden": "Это может сделать только автор темы или хост.",
     "unknown_error": "Что-то пошло не так."
   }
 }

@@ -430,6 +430,35 @@ body::before {
   text-decoration-thickness: 2px;
 }
 
+/* ----- theme chip action buttons (delete / regenerate) ----- */
+
+.theme-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  padding: 0.4rem 0.4rem;
+  border: 2px solid var(--ink);
+  border-left: none;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 90ms ease-out;
+}
+.theme-action:hover:not(:disabled) {
+  background: var(--sky);
+}
+.theme-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.theme-action-danger:hover:not(:disabled) {
+  background: var(--coral);
+  color: #fff;
+}
+
 /* ----- icon button (pencil / clipboard / etc.) ----- */
 
 .icon-btn {

@@ -132,6 +132,12 @@ async def _dispatch(ws: WebSocket, room: Room, player_id: str, frame: Any) -> No
         if event_type == "lobby/theme_generate":
             await _handle_theme_generate(ws, room, player_id, data)
             return
+        if event_type == "lobby/theme_delete":
+            await _handle_theme_delete(room, player_id, data)
+            return
+        if event_type == "lobby/theme_regenerate":
+            await _handle_theme_regenerate(ws, room, player_id, data)
+            return
         # --- game flow ---
         if event_type == "lobby/start_game":
             _require_host(room, player_id)
@@ -325,16 +331,9 @@ async def _handle_theme_generate(
             else:
                 # Wildly unlucky — give up.
                 raise ThemeGenFailedError()
-        room.add_generated_theme(theme, player_id)
-        snapshot_corpus = [
-            {
-                "id": t.id,
-                "name": t.name,
-                "icon": t.icon,
-                "generated_by": room.theme_generators.get(t.id),
-            }
-            for t in room._all_themes_locked()  # noqa: SLF001
-        ]
+        room.add_generated_theme(theme, player_id, prompt=clean_prompt)
+        snapshot_corpus = room._pickable_themes_public_locked()  # noqa: SLF001
+        theme_gen_used = dict(room._theme_gen_used)  # noqa: SLF001
 
     await room.broadcast(
         {
@@ -346,6 +345,73 @@ async def _handle_theme_generate(
                     "icon": theme.icon,
                     "generated_by": player_id,
                 },
+                "corpus_themes": snapshot_corpus,
+                "theme_gen_used": theme_gen_used,
+            },
+        }
+    )
+
+
+async def _handle_theme_delete(
+    room: Room, player_id: str, data: dict[str, Any]
+) -> None:
+    """Remove a generated theme (generator or host only). Broadcasts a fresh
+    lobby/state — its corpus_themes + theme_gen_used reflect the removal, and
+    its players reflect any picks that were cleared."""
+    theme_id = data.get("theme_id")
+    if not isinstance(theme_id, str):
+        raise InvalidPayloadError()
+    await room.delete_generated_theme(theme_id, player_id)
+    await room.broadcast({"type": "lobby/state", "data": _lobby_state(room)})
+
+
+async def _handle_theme_regenerate(
+    ws: WebSocket, room: Room, player_id: str, data: dict[str, Any]
+) -> None:
+    """Roll fresh words for an existing generated theme, keeping its id and
+    name so picks stay valid. Generator or host only; cooldown applies but it
+    doesn't consume a fresh generation slot."""
+    from app.ai.theme_generator import ThemeGenerationError
+    from app.models.errors import ThemeGenFailedError, ThemeGenUnavailableError
+
+    generator = getattr(ws.app.state, "theme_generator", None)
+    if generator is None:
+        raise ThemeGenUnavailableError()
+
+    theme_id = data.get("theme_id")
+    if not isinstance(theme_id, str):
+        raise InvalidPayloadError()
+
+    async with room.lock:
+        prompt, exclude_word_ids = room.begin_regenerate_locked(theme_id, player_id)
+        # The generator de-dupes against existing theme ids; keep the
+        # current id out so it doesn't think it's a collision.
+        existing_ids = room._all_theme_ids_locked() - {theme_id}  # noqa: SLF001
+        language = room.language
+
+    try:
+        fresh = await generator.generate(
+            prompt=prompt,
+            language=language,
+            existing_theme_ids=existing_ids,
+            exclude_word_ids=exclude_word_ids,
+        )
+    except ThemeGenerationError as e:
+        log.info("theme regeneration failed: %s", e)
+        raise ThemeGenFailedError() from e
+    except Exception as e:
+        log.warning("theme regeneration crashed: %s", e)
+        raise ThemeGenFailedError() from e
+
+    async with room.lock:
+        room.apply_regenerated_theme_locked(theme_id, fresh)
+        snapshot_corpus = room._pickable_themes_public_locked()  # noqa: SLF001
+
+    await room.broadcast(
+        {
+            "type": "lobby/theme_regenerated",
+            "data": {
+                "theme_id": theme_id,
                 "corpus_themes": snapshot_corpus,
             },
         }
@@ -666,6 +732,8 @@ def _lobby_state(room: Room) -> dict[str, object]:
         "settings": room.settings.model_dump(),
         "state": room.state,
         "max_theme_picks_per_player": _max_picks_per_player(len(room.players)),
+        "theme_gen_used": dict(room._theme_gen_used),  # noqa: SLF001
+        "corpus_themes": room._pickable_themes_public_locked(),  # noqa: SLF001
     }
 
 

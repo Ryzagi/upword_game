@@ -39,6 +39,12 @@ def _auto_seed_theme_picks(monkeypatch):
                 first = self.corpus.themes[0].id
                 for p in self.players.values():
                     p.theme_picks = [first]
-        return await orig_start(self)
+        result = await orig_start(self)
+        # Lightning cells are randomly placed and would make exact-score
+        # assertions across the suite flaky. Clear them by default;
+        # dedicated tests assign lightning explicitly to exercise the path.
+        if self.board is not None:
+            self.board.lightning = {}
+        return result
 
     monkeypatch.setattr(Room, "start_game", patched_start)

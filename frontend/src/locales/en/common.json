@@ -82,7 +82,11 @@
       "gen_cooldown": "Wait {{seconds}}s",
       "gen_cap_reached": "Generated cap reached ({{count}}/{{max}})",
       "gen_player_cap_reached": "You've used your {{max}} generations ({{count}}/{{max}})",
-      "gen_room_cap_reached": "Room hit the {{max}}-theme generation ceiling"
+      "gen_room_cap_reached": "Room hit the {{max}}-theme generation ceiling",
+      "surprise_hint": "A random mix of words from every theme",
+      "regenerate": "Reroll words",
+      "delete": "Delete theme",
+      "delete_confirm": "Delete \"{{name}}\"? It's removed for everyone."
     },
     "nickname_edit_aria": "Edit your nickname",
     "code_copy_aria": "Copy room code",
@@ -135,6 +139,7 @@
     "board_title": "Pick a category",
     "cells_used": "{{used}} of {{total}} done",
     "cell_label": "{{theme}} for {{score}} points",
+    "cell_label_lightning": "{{theme}} for {{score}} points — lightning bonus ×{{multiplier}}",
     "round_header_kicker": "now playing",
     "describer_label": "Describer",
     "concede": "Concede",
@@ -309,6 +314,8 @@
     "theme_gen_failed": "Couldn't generate that theme — try a different prompt.",
     "theme_gen_invalid_prompt": "Prompt is empty or longer than 400 characters.",
     "theme_gen_unavailable": "AI theme generation isn't enabled on this server.",
+    "theme_not_found": "That theme no longer exists.",
+    "theme_action_forbidden": "Only the theme's creator or the host can do that.",
     "unknown_error": "Something went wrong."
   }
 }

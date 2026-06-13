@@ -65,6 +65,8 @@ export interface ThemeRef {
   icon?: string | null;
   /** Player id, if this theme was AI-generated in the room. */
   generated_by?: PlayerId | null;
+  /** True for the synthetic "Surprise me" mixed-bag theme. */
+  surprise?: boolean;
 }
 
 export interface BoardCellRef {
@@ -72,10 +74,18 @@ export interface BoardCellRef {
   difficulty: number;
 }
 
+export interface LightningCell {
+  theme_id: ThemeId;
+  difficulty: number;
+  multiplier: number;
+}
+
 export interface BoardPublic {
   themes: ThemeRef[];
   base_values: number[];
   used: BoardCellRef[];
+  /** Bonus cells that pay a score multiplier. */
+  lightning?: LightningCell[];
 }
 
 export interface RoundPublic {
@@ -84,6 +94,8 @@ export interface RoundPublic {
   theme_id: ThemeId;
   difficulty: number;
   base_score: number;
+  /** Lightning-cell multiplier baked into base_score (1.0 = normal). */
+  score_multiplier?: number;
   started_at: string;
   ends_at: string | null;
   state: "active" | "ended";
@@ -168,6 +180,7 @@ export interface RoomPublic {
   rotation_index?: number;
   corpus_themes?: ThemeRef[];
   max_theme_picks_per_player?: number;
+  theme_gen_used?: Record<string, number>;
 }
 
 export function createRoom(nickname: string, language: string = "en") {

@@ -23,6 +23,11 @@ function isUsed(board: BoardPublic, theme_id: string, difficulty: number): boole
 
 export function BoardGrid({ board, canPick, onPick }: Props) {
   const { t } = useTranslation();
+  // (theme_id, difficulty) -> multiplier lookup for lightning cells.
+  const lightning = new Map<string, number>();
+  for (const lc of board.lightning ?? []) {
+    lightning.set(`${lc.theme_id}:${lc.difficulty}`, lc.multiplier);
+  }
   const cols = board.base_values.length;
   return (
     <section className="bento p-4 md:p-6 overflow-x-auto">
@@ -63,21 +68,33 @@ export function BoardGrid({ board, canPick, onPick }: Props) {
               const used = isUsed(board, theme.id, difficulty);
               const clickable = canPick && !used;
               const colour = CELL_COLOUR_BY_DIFFICULTY[idx] ?? "bento-mint";
+              const mult = lightning.get(`${theme.id}:${difficulty}`);
               return (
                 <button
                   key={difficulty}
                   type="button"
                   disabled={!clickable}
                   onClick={() => clickable && onPick(theme.id, difficulty)}
-                  aria-label={t("play.cell_label", {
-                    theme: theme.name,
-                    score: value,
-                  })}
+                  aria-label={
+                    mult
+                      ? t("play.cell_label_lightning", {
+                          theme: theme.name,
+                          score: value,
+                          multiplier: mult,
+                        })
+                      : t("play.cell_label", {
+                          theme: theme.name,
+                          score: value,
+                        })
+                  }
                   className={
-                    "bento bento-sm " +
+                    "bento bento-sm relative " +
                     colour +
                     " py-4 md:py-7 px-2 flex items-center justify-center " +
                     "transition-transform transition-shadow duration-100 " +
+                    (mult && !used
+                      ? "ring-2 ring-offset-2 ring-coral "
+                      : "") +
                     (used
                       ? "opacity-30 pointer-events-none"
                       : clickable
@@ -85,6 +102,14 @@ export function BoardGrid({ board, canPick, onPick }: Props) {
                         : "cursor-not-allowed opacity-80")
                   }
                 >
+                  {mult && !used && (
+                    <span
+                      className="absolute -top-2 -right-2 chip chip-coral !text-[0.6rem] !py-0.5 !px-1.5 !gap-0.5"
+                      aria-hidden
+                    >
+                      ⚡×{Number.isInteger(mult) ? mult : mult.toFixed(1)}
+                    </span>
+                  )}
                   <span
                     className={
                       "headline text-2xl md:text-4xl " +

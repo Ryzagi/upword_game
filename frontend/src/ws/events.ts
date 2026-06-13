@@ -41,6 +41,8 @@ export interface LobbyStateEvent {
     settings: GameSettings;
     state?: "lobby" | "board" | "round" | "ended";
     max_theme_picks_per_player?: number;
+    theme_gen_used?: Record<string, number>;
+    corpus_themes?: ThemeRef[];
   };
 }
 
@@ -165,6 +167,15 @@ export interface LobbyThemeAddedEvent {
   data: {
     theme: ThemeRef;
     corpus_themes: ThemeRef[];
+    theme_gen_used?: Record<string, number>;
+  };
+}
+
+export interface LobbyThemeRegeneratedEvent {
+  type: "lobby/theme_regenerated";
+  data: {
+    theme_id: ThemeId;
+    corpus_themes: ThemeRef[];
   };
 }
 
@@ -196,6 +207,7 @@ export type ServerEvent =
   | RoundLetterRevealEvent
   | RoundConcedeStateEvent
   | LobbyThemeAddedEvent
+  | LobbyThemeRegeneratedEvent
   | RoundEndedEvent
   | GameEndedEvent
   | ServerPingEvent
@@ -253,6 +265,16 @@ export interface LobbyThemeGenerateEvent {
   data: { prompt: string };
 }
 
+export interface LobbyThemeDeleteEvent {
+  type: "lobby/theme_delete";
+  data: { theme_id: ThemeId };
+}
+
+export interface LobbyThemeRegenerateEvent {
+  type: "lobby/theme_regenerate";
+  data: { theme_id: ThemeId };
+}
+
 export interface RoundPickCellEvent {
   type: "round/pick_cell";
   data: { theme_id: ThemeId; difficulty: number };
@@ -304,6 +326,8 @@ export type ClientEvent =
   | LobbyStartGameEvent
   | LobbyThemePicksSetEvent
   | LobbyThemeGenerateEvent
+  | LobbyThemeDeleteEvent
+  | LobbyThemeRegenerateEvent
   | RoundPickCellEvent
   | RoundConcedeEvent
   | RoundForceEndEvent

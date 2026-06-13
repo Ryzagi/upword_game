@@ -110,7 +110,7 @@ async def test_generate_retries_bad_response_then_succeeds(monkeypatch) -> None:
     del bad_payload["word_3"]  # missing difficulty → bad_response
     good_payload = _good_payload()
 
-    async def fake_once(*, prompt, language, existing_theme_ids):  # type: ignore[no-untyped-def]
+    async def fake_once(*, prompt, language, existing_theme_ids, exclude_word_ids=None):  # type: ignore[no-untyped-def]
         nonlocal call_count
         call_count += 1
         if call_count == 1:
@@ -132,7 +132,7 @@ async def test_generate_gives_up_after_max_attempts(monkeypatch) -> None:
 
     call_count = 0
 
-    async def fake_once(*, prompt, language, existing_theme_ids):  # type: ignore[no-untyped-def]
+    async def fake_once(*, prompt, language, existing_theme_ids, exclude_word_ids=None):  # type: ignore[no-untyped-def]
         nonlocal call_count
         call_count += 1
         return gen._build_theme(bad_payload, existing_theme_ids)  # noqa: SLF001
@@ -150,7 +150,7 @@ async def test_generate_does_not_retry_invalid_prompt(monkeypatch) -> None:
 
     call_count = 0
 
-    async def fake_once(*, prompt, language, existing_theme_ids):  # type: ignore[no-untyped-def]
+    async def fake_once(*, prompt, language, existing_theme_ids, exclude_word_ids=None):  # type: ignore[no-untyped-def]
         nonlocal call_count
         call_count += 1
         raise ThemeGenerationError("invalid_prompt")

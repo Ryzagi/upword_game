@@ -32,3 +32,33 @@ def pick_word_for_cell(
         return None
     chooser = rng or random
     return chooser.choice(candidates)
+
+
+def pick_surprise_word(
+    corpus: Corpus,
+    difficulty: int,
+    *,
+    exclude_ids: Iterable[str] = (),
+    rng: random.Random | None = None,
+    extra_themes: Iterable[object] = (),
+) -> Word | None:
+    """Pick a random word of the given `difficulty` from ANY theme — the
+    corpus plus any per-room generated themes. Powers the synthetic
+    "Surprise me" board row. Returns None only if no theme has an unused
+    word at that difficulty.
+    """
+    excluded = set(exclude_ids)
+    candidates: list[Word] = []
+    for theme in corpus.themes:
+        candidates.extend(
+            w for w in theme.words if w.difficulty == difficulty and w.id not in excluded
+        )
+    for theme in extra_themes:
+        words = getattr(theme, "words", [])
+        candidates.extend(
+            w for w in words if w.difficulty == difficulty and w.id not in excluded
+        )
+    if not candidates:
+        return None
+    chooser = rng or random
+    return chooser.choice(candidates)

@@ -133,6 +133,70 @@ async def test_can_generate_theme_still_allowed_for_a_different_player(
     assert m_allowed is True and m_code is None
 
 
+async def test_play_again_refreshes_theme_gen_allowance(
+    sample_corpus_en: Corpus,
+) -> None:
+    """Returning to the lobby grants each player a fresh generation
+    allowance, while the previously generated themes stick around."""
+    from app.corpus.schema import Theme, Word
+    from app.rooms.room import MAX_GENERATED_THEMES_PER_PLAYER
+
+    room = Room("AAA111", corpus=sample_corpus_en)
+    p_alex, _ = await room.add_player("Alex")
+    await room.add_player("Mira")
+
+    def _theme(idx: int) -> Theme:
+        return Theme(
+            id=f"ai-test-{idx}",
+            name=f"Test {idx}",
+            icon=None,
+            words=[
+                Word(id=f"w{idx}-{d}", text=f"w{idx}-{d}", difficulty=d, hint="A word.")
+                for d in (1, 2, 3, 4, 5)
+            ],
+        )
+
+    async with room.lock:
+        for i in range(MAX_GENERATED_THEMES_PER_PLAYER):
+            room.add_generated_theme(_theme(i), p_alex.id)
+        # Alex has exhausted his allowance.
+        allowed, _ = room.can_generate_theme_locked(p_alex.id)
+        assert allowed is False
+        themes_before = len(room.extra_themes)
+
+    # Play a trivial game to completion so we can call play_again.
+    # Seed picks so start_game passes, then exhaust the board via force_end.
+    await room.set_player_theme_picks(p_alex.id, [sample_corpus_en.themes[0].id])
+    for pid in room.players:
+        if pid != p_alex.id:
+            await room.set_player_theme_picks(pid, [sample_corpus_en.themes[1].id])
+    await room.start_game()
+    # Burn the board down to end the game.
+    while room.state != "ended":
+        describer = room.current_describer_id
+        assert describer is not None
+        # Find an unused cell.
+        cell = next(
+            (theme_id, d)
+            for theme_id in room.board.theme_ids
+            for d in range(1, len(room.board.base_values) + 1)
+            if not room.board.is_used(theme_id, d)
+        )
+        await room.pick_cell(describer, cell[0], cell[1])
+        await room.force_end_round()
+
+    await room.play_again()
+
+    async with room.lock:
+        # Themes persisted...
+        assert len(room.extra_themes) == themes_before
+        # ...but the allowance is refreshed.
+        allowed, code = room.can_generate_theme_locked(p_alex.id)
+        assert allowed is True
+        assert code is None
+        assert room.generated_count_for_player_locked(p_alex.id) == 0
+
+
 async def test_set_picks_caps_at_two_for_3_player_room(
     sample_corpus_en: Corpus,
 ) -> None:
@@ -322,3 +386,196 @@ async def test_round_public_includes_letter_fields(sample_corpus_en: Corpus) -> 
     assert "revealed_indices" in pub
     assert pub["letter_count"] == sum(1 for ch in rnd.word_text if not ch.isspace())
     assert pub["revealed_indices"] == []
+
+
+# ----------------------------------------------------------- lightning cells
+
+
+async def test_lightning_cell_multiplies_base_score(sample_corpus_en: Corpus) -> None:
+    """A lightning cell scales the round's base_score by its multiplier."""
+    room = Room("AAA111", corpus=sample_corpus_en)
+    await room.add_player("Alex")
+    await room.add_player("Mira")
+    await room.start_game()
+    describer = room.current_describer_id
+    assert describer is not None
+    theme_id = room.board.theme_ids[0]
+    # Force a known lightning multiplier on the cell we'll pick.
+    room.board.lightning = {(theme_id, 2): 2.0}
+    rnd = await room.pick_cell(describer, theme_id, 2)
+    # base value at difficulty 2 is 200 → ×2 = 400.
+    assert rnd.base_score == 400
+    assert rnd.score_multiplier == 2.0
+
+
+async def test_non_lightning_cell_unscaled(sample_corpus_en: Corpus) -> None:
+    room = Room("AAA111", corpus=sample_corpus_en)
+    await room.add_player("Alex")
+    await room.add_player("Mira")
+    await room.start_game()
+    describer = room.current_describer_id
+    assert describer is not None
+    theme_id = room.board.theme_ids[0]
+    room.board.lightning = {}
+    rnd = await room.pick_cell(describer, theme_id, 2)
+    assert rnd.base_score == 200
+    assert rnd.score_multiplier == 1.0
+
+
+def test_assign_lightning_respects_cap_and_difficulty_range() -> None:
+    import random
+
+    from app.game.board import LIGHTNING_MAX_CELLS, LIGHTNING_MULTIPLIERS, Board
+
+    themes = [{"id": f"t{i}", "name": f"T{i}"} for i in range(8)]  # 8×5 = 40 cells
+    board = Board(themes=themes)
+    board.assign_lightning(rng=random.Random(42))
+    assert 1 <= len(board.lightning) <= LIGHTNING_MAX_CELLS
+    for (tid, diff), mult in board.lightning.items():
+        assert tid in board.theme_ids
+        assert 1 <= diff <= len(board.base_values)
+        assert mult in LIGHTNING_MULTIPLIERS
+    # Exposed in public().
+    pub = board.public()
+    assert "lightning" in pub
+    assert len(pub["lightning"]) == len(board.lightning)
+
+
+# --------------------------------------------------------- surprise-me theme
+
+
+async def test_surprise_theme_is_pickable_and_serves_words(
+    sample_corpus_en: Corpus,
+) -> None:
+    from app.rooms.room import SURPRISE_THEME_ID
+
+    room = Room("AAA111", corpus=sample_corpus_en)
+    p_alex, _ = await room.add_player("Alex")
+    p_mira, _ = await room.add_player("Mira")
+    # Alex picks surprise, Mira picks a real theme.
+    await room.set_player_theme_picks(p_alex.id, [SURPRISE_THEME_ID])
+    await room.set_player_theme_picks(p_mira.id, [sample_corpus_en.themes[0].id])
+    await room.start_game()
+
+    assert room.board is not None
+    assert SURPRISE_THEME_ID in room.board.theme_ids
+
+    # Pick every difficulty of the surprise row — each must serve a word.
+    while room.current_describer_id is not None and room.state == "board":
+        if not room.board.has_cell(SURPRISE_THEME_ID, 1):
+            break
+        # Find an unused surprise cell.
+        unused = next(
+            (
+                d
+                for d in range(1, len(room.board.base_values) + 1)
+                if not room.board.is_used(SURPRISE_THEME_ID, d)
+            ),
+            None,
+        )
+        if unused is None:
+            break
+        describer = room.current_describer_id
+        rnd = await room.pick_cell(describer, SURPRISE_THEME_ID, unused)
+        assert rnd.word_text
+        assert rnd.theme_id == SURPRISE_THEME_ID
+        await room.force_end_round()
+
+
+async def test_surprise_theme_in_pickable_list(sample_corpus_en: Corpus) -> None:
+    from app.rooms.room import SURPRISE_THEME_ID
+
+    room = Room("AAA111", corpus=sample_corpus_en)
+    await room.add_player("Alex")
+    await room.add_player("Mira")
+    async with room.lock:
+        themes = room._pickable_themes_public_locked()
+    ids = [t["id"] for t in themes]
+    assert SURPRISE_THEME_ID in ids
+    surprise = next(t for t in themes if t["id"] == SURPRISE_THEME_ID)
+    assert surprise.get("surprise") is True
+
+
+# ------------------------------------------------- delete / regenerate themes
+
+
+def _gen_theme(idx: int):
+    from app.corpus.schema import Theme, Word
+
+    return Theme(
+        id=f"ai-test-{idx}",
+        name=f"Test {idx}",
+        icon=None,
+        words=[
+            Word(id=f"w{idx}-{d}", text=f"w{idx}-{d}", difficulty=d, hint="A word.")
+            for d in (1, 2, 3, 4, 5)
+        ],
+    )
+
+
+async def test_delete_generated_theme_frees_slot_and_picks(
+    sample_corpus_en: Corpus,
+) -> None:
+    room = Room("AAA111", corpus=sample_corpus_en)
+    p_alex, _ = await room.add_player("Alex")
+    await room.add_player("Mira")
+    async with room.lock:
+        room.add_generated_theme(_gen_theme(0), p_alex.id, prompt="space")
+    # Alex picks his generated theme.
+    await room.set_player_theme_picks(p_alex.id, ["ai-test-0"])
+    assert room.generated_count_for_player_locked(p_alex.id) == 1
+
+    await room.delete_generated_theme("ai-test-0", p_alex.id)
+
+    assert "ai-test-0" not in room.extra_themes
+    assert room.generated_count_for_player_locked(p_alex.id) == 0
+    assert room.players[p_alex.id].theme_picks == []
+
+
+async def test_delete_generated_theme_forbidden_for_other_non_host(
+    sample_corpus_en: Corpus,
+) -> None:
+    from app.models.errors import ThemeActionForbiddenError
+
+    room = Room("AAA111", corpus=sample_corpus_en)
+    p_alex, _ = await room.add_player("Alex")  # Alex is host (first joiner)
+    p_mira, _ = await room.add_player("Mira")
+    async with room.lock:
+        room.add_generated_theme(_gen_theme(0), p_alex.id)
+    # Make sure Mira isn't the host.
+    assert room.host_id == p_alex.id
+    with pytest.raises(ThemeActionForbiddenError):
+        await room.delete_generated_theme("ai-test-0", p_mira.id)
+
+
+async def test_delete_unknown_theme_raises(sample_corpus_en: Corpus) -> None:
+    from app.models.errors import ThemeNotFoundError
+
+    room = Room("AAA111", corpus=sample_corpus_en)
+    p_alex, _ = await room.add_player("Alex")
+    await room.add_player("Mira")
+    with pytest.raises(ThemeNotFoundError):
+        await room.delete_generated_theme("ai-nope", p_alex.id)
+
+
+async def test_regenerate_swaps_words_keeps_identity(
+    sample_corpus_en: Corpus,
+) -> None:
+    room = Room("AAA111", corpus=sample_corpus_en)
+    p_alex, _ = await room.add_player("Alex")
+    await room.add_player("Mira")
+    async with room.lock:
+        room.add_generated_theme(_gen_theme(0), p_alex.id, prompt="space")
+        # Simulate the cooldown having elapsed since generation.
+        room._theme_gen_last_at.clear()
+        prompt, exclude = room.begin_regenerate_locked("ai-test-0", p_alex.id)
+        assert prompt == "space"
+        assert len(exclude) == 5
+        fresh = _gen_theme(99)  # different words
+        room.apply_regenerated_theme_locked("ai-test-0", fresh)
+        theme = room.extra_themes["ai-test-0"]
+    # Same id + name + attribution, new words.
+    assert theme.id == "ai-test-0"
+    assert theme.name == "Test 0"
+    assert room.theme_generators["ai-test-0"] == p_alex.id
+    assert {w.text for w in theme.words} == {f"w99-{d}" for d in (1, 2, 3, 4, 5)}

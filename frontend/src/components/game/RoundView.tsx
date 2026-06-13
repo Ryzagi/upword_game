@@ -72,6 +72,14 @@ export function RoundView(props: Props) {
             <h2 className="headline-tight text-2xl md:text-3xl mt-1">
               {themeName} ·{" "}
               <span className="numeral">{round.base_score}</span>
+              {(round.score_multiplier ?? 1) > 1 && (
+                <span className="chip chip-yellow !text-xs !py-0.5 !px-2 ml-2 align-middle">
+                  ⚡×
+                  {Number.isInteger(round.score_multiplier ?? 1)
+                    ? round.score_multiplier
+                    : (round.score_multiplier ?? 1).toFixed(1)}
+                </span>
+              )}
             </h2>
           </div>
           <div className="flex items-center gap-3 flex-wrap justify-end">

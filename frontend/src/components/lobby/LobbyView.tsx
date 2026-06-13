@@ -23,6 +23,7 @@ interface Props {
   yourPlayer: PlayerPublic | null;
   corpusThemes: ThemeRef[];
   maxThemePicksPerPlayer: number;
+  themeGenUsed: Record<string, number>;
   startGameDisabledReason: string | null;
   onStartGame: () => void;
 }
@@ -38,6 +39,7 @@ export function LobbyView({
   yourPlayer,
   corpusThemes,
   maxThemePicksPerPlayer,
+  themeGenUsed,
   startGameDisabledReason,
   onStartGame,
 }: Props) {
@@ -154,6 +156,8 @@ export function LobbyView({
             players={players}
             corpusThemes={corpusThemes}
             maxPicks={maxThemePicksPerPlayer}
+            themeGenUsed={themeGenUsed}
+            isHost={isHost}
             send={send}
           />
         </div>

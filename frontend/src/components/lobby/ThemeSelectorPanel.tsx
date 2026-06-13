@@ -18,6 +18,13 @@ interface Props {
   players: PlayerPublic[];
   corpusThemes: ThemeRef[];
   maxPicks: number;
+  /** Per-player generation count for the current lobby session
+   *  (player_id -> count). Resets when the room returns to the lobby, so
+   *  each game grants a fresh allowance. */
+  themeGenUsed: Record<string, number>;
+  /** Whether the current player is the host (can manage any generated
+   *  theme, not just their own). */
+  isHost: boolean;
   send: (event: ClientEvent) => boolean;
 }
 
@@ -26,9 +33,18 @@ export function ThemeSelectorPanel({
   players,
   corpusThemes,
   maxPicks,
+  themeGenUsed,
+  isHost,
   send,
 }: Props) {
   const { t } = useTranslation();
+  // Theme id currently being re-rolled (shows a spinner, disables actions).
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  // When the corpus list changes (regenerate resolved → theme_regenerated),
+  // clear the in-flight spinner.
+  useEffect(() => {
+    setRegeneratingId(null);
+  }, [corpusThemes]);
 
   const yourPicks = yourPlayer?.theme_picks ?? [];
   const yourPickSet = new Set(yourPicks);
@@ -58,10 +74,12 @@ export function ThemeSelectorPanel({
   const unionThemes = corpusThemes.filter((t) => unionIds.has(t.id));
 
   // ------- AI generator state -------
-  // Per-player generation count: how many of MY generated themes are
-  // currently in the room. The cap is per-player now (was room-wide).
+  // Per-player generation count for THIS lobby session — comes from the
+  // server (resets on play_again) rather than counting attributed themes,
+  // which persist across games. That's what lets each new game grant a
+  // fresh allowance while the old themes remain pickable.
   const yourGeneratedCount = yourPlayer
-    ? corpusThemes.filter((t) => t.generated_by === yourPlayer.id).length
+    ? (themeGenUsed[yourPlayer.id] ?? 0)
     : 0;
   const totalGeneratedCount = corpusThemes.filter((t) => t.generated_by).length;
   const playerCapReached = yourGeneratedCount >= PLAYER_GEN_CAP;
@@ -129,19 +147,29 @@ export function ThemeSelectorPanel({
             const generatorName = generatorId
               ? playerById.get(generatorId)?.nickname
               : undefined;
+            // Generated themes can be deleted / re-rolled by their creator
+            // or the host.
+            const isGenerated = !!generatorId;
+            const canManage =
+              isGenerated &&
+              !!yourPlayer &&
+              (generatorId === yourPlayer.id || isHost);
+            const isRegenerating = regeneratingId === theme.id;
             const tooltip = claimed
               ? t("lobby.themes.claimed_by", { name: ownerName })
               : atCap
                 ? t("lobby.themes.max_reached", { count: maxPicks })
                 : generatorName
                   ? t("lobby.themes.generated_by", { name: generatorName })
-                  : undefined;
+                  : theme.surprise
+                    ? t("lobby.themes.surprise_hint")
+                    : undefined;
             return (
-              <li key={theme.id}>
+              <li key={theme.id} className="inline-flex items-center">
                 <button
                   type="button"
                   onClick={() => toggle(theme.id)}
-                  disabled={disabled}
+                  disabled={disabled || isRegenerating}
                   title={tooltip}
                   className={
                     "chip-toggle " +
@@ -150,11 +178,17 @@ export function ThemeSelectorPanel({
                       : claimed
                         ? "chip-toggle-claimed"
                         : "chip-toggle-off") +
+                    (canManage ? " !rounded-r-none" : "") +
                     (disabled && !claimed ? " opacity-40 cursor-not-allowed" : "")
                   }
                   aria-pressed={selected}
                   aria-disabled={disabled || undefined}
                 >
+                  {theme.surprise && (
+                    <span aria-hidden className="mr-0.5">
+                      🎲
+                    </span>
+                  )}
                   {generatorName && (
                     <span aria-hidden className="mr-0.5">
                       ✨
@@ -172,6 +206,47 @@ export function ThemeSelectorPanel({
                     </span>
                   )}
                 </button>
+                {canManage && (
+                  <span className="inline-flex">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isRegenerating) return;
+                        setRegeneratingId(theme.id);
+                        send({
+                          type: "lobby/theme_regenerate",
+                          data: { theme_id: theme.id },
+                        });
+                      }}
+                      disabled={isRegenerating}
+                      title={t("lobby.themes.regenerate")}
+                      aria-label={t("lobby.themes.regenerate")}
+                      className="theme-action"
+                    >
+                      <span className={isRegenerating ? "inline-block animate-spin" : ""}>
+                        ⟳
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isRegenerating) return;
+                        if (window.confirm(t("lobby.themes.delete_confirm", { name: theme.name }))) {
+                          send({
+                            type: "lobby/theme_delete",
+                            data: { theme_id: theme.id },
+                          });
+                        }
+                      }}
+                      disabled={isRegenerating}
+                      title={t("lobby.themes.delete")}
+                      aria-label={t("lobby.themes.delete")}
+                      className="theme-action theme-action-danger !rounded-r-full"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
               </li>
             );
           })}

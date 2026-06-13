@@ -134,6 +134,7 @@ class ThemeGenerator:
         prompt: str,
         language: str,
         existing_theme_ids: set[str],
+        exclude_word_ids: list[str] | None = None,
     ) -> Theme:
         """Generate a theme. The returned Theme is guaranteed to be:
 
@@ -141,6 +142,10 @@ class ThemeGenerator:
         * unique id-wise relative to ``existing_theme_ids``,
         * have exactly one word per difficulty 1..5,
         * have hints that don't echo the target word.
+
+        ``exclude_word_ids`` is a soft hint (used when re-rolling a theme) —
+        the slugified previous words are mentioned in the prompt so the model
+        tries to avoid repeating them. It's not a hard guarantee.
 
         Retries up to ``GENERATION_MAX_ATTEMPTS`` times if the model returns
         a payload that fails post-validation (wrong word count, missing
@@ -154,6 +159,7 @@ class ThemeGenerator:
                     prompt=prompt,
                     language=language,
                     existing_theme_ids=existing_theme_ids,
+                    exclude_word_ids=exclude_word_ids,
                 )
             except ThemeGenerationError as e:
                 # Only retry on quality issues; everything else is fatal.
@@ -174,6 +180,7 @@ class ThemeGenerator:
         prompt: str,
         language: str,
         existing_theme_ids: set[str],
+        exclude_word_ids: list[str] | None = None,
     ) -> Theme:
         """A single OpenAI call + validation pass. The caller wraps this in
         a retry loop for ``bad_response`` outcomes."""
@@ -216,6 +223,16 @@ class ThemeGenerator:
             "theme explicitly calls for them."
         )
         user_msg = f"Theme: {clean_prompt}\nLanguage: {language_label}"
+        if exclude_word_ids:
+            # Soft avoidance for re-rolls: the ids are slugs of prior words.
+            avoid = ", ".join(
+                w.replace("-", " ") for w in exclude_word_ids if isinstance(w, str)
+            )[:300]
+            if avoid:
+                user_msg += (
+                    f"\nThis is a re-roll. Pick DIFFERENT words than these "
+                    f"(do not reuse them): {avoid}"
+                )
 
         kwargs: dict[str, Any] = {
             "model": self._model,

@@ -157,6 +157,7 @@ function ConnectedRoom({
   const roomLanguage = useRoomStore((s) => s.roomLanguage);
   const corpusThemes = useRoomStore((s) => s.corpusThemes);
   const maxThemePicksPerPlayer = useRoomStore((s) => s.maxThemePicksPerPlayer);
+  const themeGenUsed = useRoomStore((s) => s.themeGenUsed);
   const currentRound = useRoomStore((s) => s.currentRound);
   const currentDescriberId = useRoomStore((s) => s.currentDescriberId);
   const describerWord = useRoomStore((s) => s.describerWord);
@@ -355,6 +356,7 @@ function ConnectedRoom({
             yourPlayer={yourPlayer}
             corpusThemes={corpusThemes}
             maxThemePicksPerPlayer={maxThemePicksPerPlayer}
+            themeGenUsed={themeGenUsed}
             startGameDisabledReason={startDisabledReason}
             onStartGame={handleStartGame}
           />
@@ -481,6 +483,8 @@ const LOBBY_ONLY_ERROR_CODES = new Set([
   "theme_gen_failed",
   "theme_gen_invalid_prompt",
   "theme_gen_unavailable",
+  "theme_not_found",
+  "theme_action_forbidden",
 ]);
 
 function isLobbyOnlyErrorIrrelevantNow(code: string, state: string): boolean {

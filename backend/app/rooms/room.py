@@ -15,7 +15,7 @@ from app.game.board import Board
 from app.game.rotation import compute_rotation
 from app.game.round import CorrectTeamEntry, Round
 from app.game.scoring import describer_reward, points_for_team_position
-from app.game.word_picker import pick_word_for_cell
+from app.game.word_picker import pick_surprise_word, pick_word_for_cell
 from app.models.errors import (
     AlreadyConcededError,
     AlreadyGuessedCorrectlyError,
@@ -35,6 +35,9 @@ from app.models.errors import (
     TeamLimitExceededError,
     TeamNameTakenError,
     TeamNotFoundError,
+    ThemeActionForbiddenError,
+    ThemeGenRateLimitedError,
+    ThemeNotFoundError,
     UnknownThemeError,
 )
 from app.models.player import Player, validate_nickname
@@ -74,6 +77,16 @@ LETTER_REVEAL_INTERVAL_SECONDS = 40.0
 MAX_GENERATED_THEMES_PER_PLAYER = 2
 MAX_GENERATED_THEMES_PER_ROOM = 20
 THEME_GEN_COOLDOWN_SECONDS = 30.0
+
+# Synthetic "Surprise me" theme — a virtual board row whose words are drawn
+# from ANY available theme at the chosen difficulty. Not a real corpus theme
+# (it has no word list of its own); the word picker special-cases it.
+SURPRISE_THEME_ID = "__surprise__"
+
+
+def _surprise_theme_name(language: str) -> str:
+    return {"ru": "Сюрприз"}.get(language, "Surprise me")
+
 
 RoomState = Literal["lobby", "board", "round", "ended"]
 
@@ -159,6 +172,15 @@ class Room:
         self.extra_themes: dict[str, Theme] = {}
         # Attribution: theme_id -> player_id who generated it.
         self.theme_generators: dict[str, str] = {}
+        # The prompt each generated theme came from, so "regenerate" can roll
+        # fresh words on the same topic. theme_id -> prompt.
+        self.theme_prompts: dict[str, str] = {}
+        # Per-player generation count for the CURRENT lobby session. This is
+        # what the per-player cap is checked against — NOT the attribution
+        # map above, which persists across games. Reset in `play_again` so
+        # returning to the lobby grants each player a fresh allowance while
+        # the previously generated themes stick around.
+        self._theme_gen_used: dict[str, int] = {}
         # Per-player cooldown timestamps for the AI theme generator
         # (player_id -> monotonic seconds at last successful generation).
         self._theme_gen_last_at: dict[str, float] = {}
@@ -351,16 +373,55 @@ class Room:
     def _all_theme_ids_locked(self) -> set[str]:
         ids = {t.id for t in self.corpus.themes} if self.corpus is not None else set()
         ids.update(self.extra_themes.keys())
+        # The synthetic "Surprise me" theme is always pickable.
+        ids.add(SURPRISE_THEME_ID)
         return ids
+
+    def _pickable_themes_public_locked(self) -> list[dict[str, object]]:
+        """The list of themes the lobby picker shows: real corpus + AI
+        themes (with generated_by attribution), plus the synthetic
+        "Surprise me" entry at the end. Single source of truth so every
+        wire payload (snapshot / lobby_state / theme_added) stays in sync.
+        """
+        out: list[dict[str, object]] = [
+            {
+                "id": t.id,
+                "name": t.name,
+                "icon": t.icon,
+                "generated_by": self.theme_generators.get(t.id),
+            }
+            for t in self._all_themes_locked()
+        ]
+        out.append(
+            {
+                "id": SURPRISE_THEME_ID,
+                "name": _surprise_theme_name(self.language),
+                "icon": "shuffle",
+                "generated_by": None,
+                "surprise": True,
+            }
+        )
+        return out
 
     # ====================================================== theme generation (AI)
 
-    def add_generated_theme(self, theme: Theme, generator_player_id: str) -> None:
+    def add_generated_theme(
+        self,
+        theme: Theme,
+        generator_player_id: str,
+        *,
+        prompt: str | None = None,
+    ) -> None:
         """Append an AI-generated theme to this room only. The caller is
         responsible for cap / cooldown enforcement and for holding the
         room lock — see ``ws.router._handle_theme_generate``."""
         self.extra_themes[theme.id] = theme
         self.theme_generators[theme.id] = generator_player_id
+        if prompt:
+            self.theme_prompts[theme.id] = prompt
+        self._theme_gen_used[generator_player_id] = (
+            self._theme_gen_used.get(generator_player_id, 0) + 1
+        )
         loop = asyncio.get_event_loop()
         self._theme_gen_last_at[generator_player_id] = loop.time()
         log.info(
@@ -375,8 +436,10 @@ class Room:
         )
 
     def generated_count_for_player_locked(self, player_id: str) -> int:
-        """How many themes this specific player has generated in this room."""
-        return sum(1 for pid in self.theme_generators.values() if pid == player_id)
+        """How many themes this player has generated in the current lobby
+        session. Resets on `play_again` so each game grants a fresh
+        allowance even though previously generated themes stick around."""
+        return self._theme_gen_used.get(player_id, 0)
 
     def can_generate_theme_locked(self, player_id: str) -> tuple[bool, str | None]:
         """Predicate for whether the player can generate right now. Returns
@@ -400,6 +463,72 @@ class Room:
             if elapsed < THEME_GEN_COOLDOWN_SECONDS:
                 return False, "theme_gen_rate_limited"
         return True, None
+
+    def _assert_can_manage_generated_theme_locked(
+        self, theme_id: str, requester_id: str
+    ) -> str:
+        """Shared guard for delete/regenerate. Returns the original
+        generator's player_id. Raises if the room isn't in the lobby, the
+        theme isn't a generated one, or the requester is neither its
+        generator nor the host."""
+        if self.state != "lobby":
+            raise RoomNotInLobbyError()
+        if theme_id not in self.extra_themes:
+            raise ThemeNotFoundError()
+        owner = self.theme_generators.get(theme_id)
+        if requester_id != owner and requester_id != self.host_id:
+            raise ThemeActionForbiddenError()
+        return owner or ""
+
+    async def delete_generated_theme(self, theme_id: str, requester_id: str) -> None:
+        """Remove a generated theme from the room. Frees the generator's
+        allowance slot and drops the theme from any player's picks. Only the
+        theme's generator or the host may delete it, and only in the lobby."""
+        async with self.lock:
+            owner = self._assert_can_manage_generated_theme_locked(
+                theme_id, requester_id
+            )
+            del self.extra_themes[theme_id]
+            self.theme_generators.pop(theme_id, None)
+            self.theme_prompts.pop(theme_id, None)
+            # Give the generator their slot back.
+            if owner and self._theme_gen_used.get(owner, 0) > 0:
+                self._theme_gen_used[owner] -= 1
+            # Drop the now-gone theme from anyone's picks.
+            for p in self.players.values():
+                if theme_id in p.theme_picks:
+                    p.theme_picks = [t for t in p.theme_picks if t != theme_id]
+            log.info("theme_deleted room=%s theme_id=%s by=%s", self.code, theme_id, requester_id)
+
+    def begin_regenerate_locked(self, theme_id: str, requester_id: str) -> tuple[str, list[str]]:
+        """Validate a regenerate request and return ``(prompt, exclude_word_ids)``
+        for the generator call. Caller holds the lock. Cooldown applies so a
+        reroll can't be spammed, but it does NOT consume a fresh cap slot."""
+        self._assert_can_manage_generated_theme_locked(theme_id, requester_id)
+        last = self._theme_gen_last_at.get(requester_id)
+        if last is not None:
+            loop = asyncio.get_event_loop()
+            if loop.time() - last < THEME_GEN_COOLDOWN_SECONDS:
+                raise ThemeGenRateLimitedError()
+        existing = self.extra_themes[theme_id]
+        prompt = self.theme_prompts.get(theme_id) or existing.name
+        exclude_word_ids = [w.id for w in existing.words]
+        return prompt, exclude_word_ids
+
+    def apply_regenerated_theme_locked(self, theme_id: str, fresh: Theme) -> None:
+        """Replace the words of an existing generated theme in place, keeping
+        its id, display name and attribution so any picks stay valid. Caller
+        holds the lock."""
+        if theme_id not in self.extra_themes:
+            raise ThemeNotFoundError()
+        existing = self.extra_themes[theme_id]
+        existing.words = list(fresh.words)
+        # Refresh cooldown so rerolls are rate-limited like generations.
+        owner = self.theme_generators.get(theme_id)
+        if owner:
+            loop = asyncio.get_event_loop()
+            self._theme_gen_last_at[owner] = loop.time()
+        log.info("theme_regenerated room=%s theme_id=%s", self.code, theme_id)
 
     async def set_player_team(self, player_id: str, team_id: str | None) -> Player:
         async with self.lock:
@@ -506,7 +635,18 @@ class Room:
                 for t in self._all_themes_locked()
                 if t.id in picked_ids
             ]
+            # The synthetic "Surprise me" row, if anyone picked it.
+            if SURPRISE_THEME_ID in picked_ids:
+                selected_themes.append(
+                    {
+                        "id": SURPRISE_THEME_ID,
+                        "name": _surprise_theme_name(self.language),
+                        "icon": "shuffle",
+                    }
+                )
             self.board = Board(themes=selected_themes)
+            # Sprinkle a few lightning (bonus-multiplier) cells across it.
+            self.board.assign_lightning()
             self.current_round = None
             self.state = "board"
 
@@ -559,13 +699,22 @@ class Room:
             if self.corpus is None:
                 raise NoWordsAvailableError()
 
-            word = pick_word_for_cell(
-                self.corpus,
-                theme_id,
-                difficulty,
-                exclude_ids=self._used_word_ids,
-                extra_themes=self.extra_themes.values(),
-            )
+            if theme_id == SURPRISE_THEME_ID:
+                # Mixed bag: draw a word of this difficulty from ANY theme.
+                word = pick_surprise_word(
+                    self.corpus,
+                    difficulty,
+                    exclude_ids=self._used_word_ids,
+                    extra_themes=self.extra_themes.values(),
+                )
+            else:
+                word = pick_word_for_cell(
+                    self.corpus,
+                    theme_id,
+                    difficulty,
+                    exclude_ids=self._used_word_ids,
+                    extra_themes=self.extra_themes.values(),
+                )
             if word is None:
                 # Diagnostic: when this fires for an AI theme, the most
                 # likely causes are (a) the theme isn't in extra_themes at
@@ -578,19 +727,26 @@ class Room:
             if self.settings.mode == "time" and self.settings.time_seconds is not None:
                 ends_at = datetime.now(UTC) + timedelta(seconds=self.settings.time_seconds)
 
+            # Lightning cells multiply the base score; everything downstream
+            # (team decay points, describer reward) derives from base_score,
+            # so multiplying once here scales the whole round.
+            multiplier = self.board.multiplier_for(theme_id, difficulty)
+            base_score = int(self.board.base_score_for(difficulty) * multiplier)
+
             self._round_counter += 1
             self.current_round = Round(
                 id=f"r-{self._round_counter}-{secrets.token_urlsafe(4)}",
                 describer_id=player_id,
                 theme_id=theme_id,
                 difficulty=difficulty,
-                base_score=self.board.base_score_for(difficulty),
+                base_score=base_score,
                 word_id=word.id,
                 word_text=word.text,
                 hint=word.hint,
                 aliases=list(word.aliases),
                 ends_at=ends_at,
             )
+            self.current_round.score_multiplier = multiplier
             self.board.mark_used(theme_id, difficulty)
             self._used_word_ids.add(word.id)
             self.state = "round"
@@ -633,6 +789,11 @@ class Room:
         before the next game. Scores reset, picks reset, but team
         composition and any AI-generated themes from the previous game
         carry over so players don't have to re-do setup.
+
+        Each player's theme-generation allowance is refreshed (the
+        previously generated themes remain available to pick), so a new
+        game lets everyone generate up to MAX_GENERATED_THEMES_PER_PLAYER
+        more themes — subject to the room-wide ceiling.
         """
         async with self.lock:
             if self.state != "ended":
@@ -647,6 +808,12 @@ class Room:
             self.rotation_index = 0
             self._used_word_ids = set()
             self._round_counter = 0
+            # Fresh generation allowance for the new game. Attribution and
+            # the themes themselves persist (theme_generators / extra_themes).
+            # Also clear cooldown timestamps so a fresh lobby isn't blocked
+            # by a generation that happened just before the previous game.
+            self._theme_gen_used = {}
+            self._theme_gen_last_at = {}
             self.state = "lobby"
 
     # ---------------------------------------------------------- guess + text
@@ -1036,17 +1203,10 @@ class Room:
             "teams": self._teams_public(),
             "settings": self.settings.model_dump(),
             "max_theme_picks_per_player": _max_picks_per_player(len(self.players)),
+            "theme_gen_used": dict(self._theme_gen_used),
         }
         if self.corpus is not None:
-            snap["corpus_themes"] = [
-                {
-                    "id": t.id,
-                    "name": t.name,
-                    "icon": t.icon,
-                    "generated_by": self.theme_generators.get(t.id),
-                }
-                for t in self._all_themes_locked()
-            ]
+            snap["corpus_themes"] = self._pickable_themes_public_locked()
         if self.board is not None:
             snap["board"] = self.board.public()
         if self.current_round is not None:

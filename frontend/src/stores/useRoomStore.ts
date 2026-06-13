@@ -96,6 +96,9 @@ interface RoomStoreState {
   // ---- Lobby theme picker ----
   corpusThemes: ThemeRef[];
   maxThemePicksPerPlayer: number;
+  /** Per-player count of AI themes generated this lobby session
+   *  (player_id -> count). Resets when the room returns to the lobby. */
+  themeGenUsed: Record<string, number>;
 
   // ---- Errors ----
   lastError: { code: string; ref?: string } | null;
@@ -139,6 +142,7 @@ const empty: Omit<
   guessFlash: null,
   corpusThemes: [],
   maxThemePicksPerPlayer: 1,
+  themeGenUsed: {},
   lastError: null,
 };
 
@@ -193,6 +197,7 @@ export const useRoomStore = create<RoomStoreState>((set) => ({
             guessFlash: null,
             corpusThemes: d.corpus_themes ?? [],
             maxThemePicksPerPlayer: d.max_theme_picks_per_player ?? 1,
+            themeGenUsed: d.theme_gen_used ?? {},
             lastError: null,
           };
         }
@@ -208,6 +213,12 @@ export const useRoomStore = create<RoomStoreState>((set) => ({
           }
           if (event.data.max_theme_picks_per_player !== undefined) {
             patch.maxThemePicksPerPlayer = event.data.max_theme_picks_per_player;
+          }
+          if (event.data.theme_gen_used !== undefined) {
+            patch.themeGenUsed = event.data.theme_gen_used;
+          }
+          if (event.data.corpus_themes !== undefined) {
+            patch.corpusThemes = event.data.corpus_themes;
           }
           return patch;
         }
@@ -263,6 +274,13 @@ export const useRoomStore = create<RoomStoreState>((set) => ({
             },
           };
         case "lobby/theme_added":
+          return {
+            corpusThemes: event.data.corpus_themes,
+            ...(event.data.theme_gen_used !== undefined
+              ? { themeGenUsed: event.data.theme_gen_used }
+              : {}),
+          };
+        case "lobby/theme_regenerated":
           return {
             corpusThemes: event.data.corpus_themes,
           };
